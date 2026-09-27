@@ -1,0 +1,61 @@
+{
+  "note": "Hand-designed characters made in Sprite Forge, imported from Downloads exports. Filenames were auto-suffixed by the browser (sprite.png, sprite (1).png, ...) since every export used the same download name — the suffix order is edit history, not distinct designs.",
+  "characters": [
+    {
+      "id": "priestess",
+      "role": "npc",
+      "variants": ["priestess-a.png", "priestess-b.png", "priestess-c.png"],
+      "final": "priestess-c.png",
+      "palette": ["teal skin", "pink hair", "yellow", "green sleeve"],
+      "notes": "Three hairstyle passes on the same design; -c has the fuller flowing hair."
+    },
+    {
+      "id": "gorgon",
+      "role": "boss",
+      "variants": ["gorgon-a.png", "gorgon-b.png"],
+      "final": "gorgon-b.png",
+      "palette": ["green", "gold circlet", "brown skin", "pink"],
+      "notes": "Medusa-style radiating hair. The two variants are nearly identical."
+    },
+    {
+      "id": "solar-deity",
+      "role": "boss",
+      "variants": ["solar-deity.png"],
+      "final": "solar-deity.png",
+      "palette": ["yellow", "green face", "brown/pink robe", "teal boots"],
+      "notes": "Ray-crown silhouette."
+    },
+    {
+      "id": "forest-sprite",
+      "role": "npc",
+      "variants": ["forest-sprite.png"],
+      "final": "forest-sprite.png",
+      "palette": ["mint hair", "pink robe", "yellow top"],
+      "notes": ""
+    },
+    {
+      "id": "fawn-spirit",
+      "role": "npc",
+      "variants": ["fawn-spirit-a.png", "fawn-spirit-b.png"],
+      "final": "fawn-spirit-b.png",
+      "palette": ["cyan skin", "blue antlers", "magenta cloak", "yellow torso"],
+      "notes": "Near-identical pair."
+    },
+    {
+      "id": "horned-boss",
+      "role": "boss",
+      "variants": [
+        "horned-boss-01.png", "horned-boss-02.png", "horned-boss-03.png",
+        "horned-boss-04.png", "horned-boss-05.png"
+      ],
+      "final": "horned-boss-03.png",
+      "palette": ["brown horns", "green skin", "purple shoulders", "olive legs"],
+      "notes": "Five-stage progression. -04 and -05 have heavy background pixel noise that looks like an accidental fill-tool mishap rather than an intended effect — flagged for review, not auto-resolved."
+    }
+  ],
+  "sketches": {
+    "role": "unresolved",
+    "files": ["sketches/sketch-a.png", "sketches/sketch-b.png"],
+    "notes": "Look like abandoned/scratch drafts rather than a character — kept separate, not tagged as a design."
+  }
+}
