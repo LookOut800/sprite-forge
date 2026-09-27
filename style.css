@@ -38,6 +38,14 @@ body{
   background-attachment:fixed;
 }
 
+/* Scale the entire page 2x on anything roomier than a phone. `zoom` (rather
+   than transform: scale) reflows layout at the larger size instead of just
+   stretching a pixel, and — unlike transform — doesn't break position:fixed,
+   so the toast and pose-sheet modal still land in the right place. */
+@media (min-width: 760px) {
+  body{ zoom:2; }
+}
+
 h1,h2,h3{ margin:0; }
 h1{ font-family:'Press Start 2P', 'VT323', monospace; }
 button, select, input{ font-family:inherit; }
