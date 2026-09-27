@@ -423,7 +423,7 @@
     color: "#70A4B2",
     symmetry: true,
     showGrid: false,
-    cellPx: 16,
+    cellPx: 22,
     undoStack: [],
     redoStack: [],
     gallery: [],

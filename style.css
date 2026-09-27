@@ -21,13 +21,17 @@
 html,body{ height:100%; }
 body{
   margin:0;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   background:var(--bg);
   color:var(--ink);
   font-family:'VT323', ui-monospace, monospace;
-  font-size:19px;
+  font-size:21px;
   line-height:1.35;
   padding-inline:16px;
-  padding-block:20px 32px;
+  padding-block:28px 40px;
   background-image:
     radial-gradient(ellipse 900px 500px at 20% -10%, rgba(111,61,134,0.25), transparent 60%),
     radial-gradient(ellipse 700px 500px at 100% 0%, rgba(112,164,178,0.12), transparent 55%);
@@ -38,7 +42,7 @@ h1,h2,h3{ margin:0; }
 h1{ font-family:'Press Start 2P', 'VT323', monospace; }
 button, select, input{ font-family:inherit; }
 
-.wrap{ max-width:1180px; margin:0 auto; }
+.wrap{ max-width:1400px; width:100%; margin:0 auto; }
 
 header.top{
   display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
@@ -46,8 +50,8 @@ header.top{
   padding-bottom:18px; margin-bottom:18px;
   border-bottom:2px solid var(--line);
 }
-.brand h1{ font-size:20px; color:var(--warm); letter-spacing:1px; margin-bottom:8px; }
-.brand p{ margin:0; color:var(--muted); font-size:18px; max-width:52ch; }
+.brand h1{ font-size:26px; color:var(--warm); letter-spacing:1px; margin-bottom:8px; }
+.brand p{ margin:0; color:var(--muted); font-size:19px; max-width:52ch; }
 .brand .tag{ display:inline-block; font-size:12px; letter-spacing:1.5px; text-transform:uppercase;
   color:var(--accent); border:1px solid var(--line); background:var(--panel);
   padding:3px 8px; border-radius:3px; margin-bottom:10px; }
