@@ -41,12 +41,17 @@
     shuttle:"Shuttle", saucer:"Saucer",
   };
   // colour roles: [hull, panel, wing, glow, canopy] — same 5-slot shape as the
-  // hero palettes, so a hull in c64/confetti/candy pairs thematically with a
-  // hero in the same set.
+  // hero palettes (c64/confetti/candy pair thematically with a hero in the
+  // same set), plus five sets built for the space theme specifically.
   const PALETTES = {
-    c64:      ["#70A4B2","#6F3D86","#B8C76F","#6F4F25","#588D43"],
-    confetti: ["#FF3B8B","#FFD800","#7FE0D0","#8A5A10","#00B050"],
-    candy:    ["#FFCFCF","#F43FC5","#66BAC4","#FFFF1A","#73BB98"],
+    c64:        ["#70A4B2","#6F3D86","#B8C76F","#6F4F25","#588D43"],
+    confetti:   ["#FF3B8B","#FFD800","#7FE0D0","#8A5A10","#00B050"],
+    candy:      ["#FFCFCF","#F43FC5","#66BAC4","#FFFF1A","#73BB98"],
+    deepspace:  ["#2C3454","#8A93A8","#4A3B6B","#4FE8F0","#9FD6FF"],
+    nebula:     ["#C13FA0","#6B3FA0","#3FA0C1","#FFD93F","#E6C2FF"],
+    solarflare: ["#D9622B","#8C2F1B","#F2A93B","#FFEB3B","#FFD8A8"],
+    icefield:   ["#8FD8E0","#2E5C73","#4FA8B8","#FFFFFF","#B8E4FF"],
+    toxic:      ["#6FA83D","#3D5C1F","#8C3DA8","#C6FF3D","#BFFF8A"],
   };
 
   // A bulge shape shared by the main wing and the tailplane: how far past
