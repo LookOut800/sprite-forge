@@ -101,6 +101,11 @@ canvas#pixels{
   border-radius:3px;
   box-shadow: 0 0 0 1px var(--line);
 }
+canvas#sideView{
+  image-rendering:pixelated;
+  border-radius:3px;
+  box-shadow: 0 0 0 1px var(--line);
+}
 
 .toolbar{
   display:flex; flex-wrap:wrap; gap:9px; align-items:center;

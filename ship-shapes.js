@@ -1,27 +1,29 @@
-// Spaceship hull generator — presets, recipe, and the pixel grid. Sits on
-// the same shared editor engine (window.SpriteTool) as the hero generator:
-// nose at the top, tail at the bottom, mirrored left/right around the same
-// two-column centreline convention hero-shapes.js uses.
+// Spaceship hull generator — presets, recipe, and the pixel grid, rendered
+// from TWO angles off one shared hull description: a top-down view (nose up,
+// mirrored left/right — this is the editable canvas) and a side view (nose
+// right, mirrored top/bottom — a read-only preview). Both views walk the
+// same `hull` list and feature markers through an `orient` function that
+// maps (lengthIndex, widthIndex) to pixel coordinates, so a hull is defined
+// once and drawn from either angle.
 (() => {
   "use strict";
   const { outlinePass } = window.SpriteTool;
-  const W = 20, H = 22;
-  const CX0 = 9, CX1 = 10; // the two centre columns; mirror pairs are (CX0-i, CX1+i)
-  const TOP = 1; // clearance above the nose tip for the outline pass
+  const SIZE = 30;
+  const C0 = 14, C1 = 15; // the two centre columns/rows the width axis mirrors around
 
   // preset: [bodyLen, noseLen, coreHalfWidth, wingStartFrac, wingLen, wingSpan,
-  //          engineCount, engineLen, cockpitSize, hullNoise, gunOdds]
+  //          engineCount, engineLen, cockpitSize, hullNoise, gunOdds, finOdds, spikeOdds]
   const PRESETS = {
-    scout:       [6, 3, 2, 0.30, 3, 2, 1, 3, 1, 0.05, 0.10],
-    interceptor: [8, 4, 2, 0.40, 4, 3, 2, 4, 1, 0.05, 0.30],
-    fighter:     [9, 3, 3, 0.35, 5, 4, 2, 4, 1, 0.08, 0.50],
-    corvette:    [10,3, 3, 0.50, 4, 3, 2, 3, 1, 0.10, 0.30],
-    bomber:      [9, 2, 4, 0.55, 5, 6, 3, 3, 0, 0.12, 0.40],
-    cruiser:     [12,3, 3, 0.45, 3, 2, 3, 4, 1, 0.10, 0.20],
-    gunship:     [8, 2, 3, 0.30, 4, 3, 2, 3, 1, 0.10, 0.70],
-    dreadnought: [12,2, 5, 0.50, 4, 4, 3, 4, 2, 0.14, 0.50],
-    shuttle:     [8, 2, 4, 0.60, 3, 2, 1, 2, 2, 0.06, 0.00],
-    saucer:      [5, 2, 5, 0.00, 5, 5, 1, 2, 1, 0.08, 0.20],
+    scout:       [9, 4, 3, 0.30, 4, 3, 1, 4, 1, 0.05, 0.10, 0.3, 0.4],
+    interceptor: [12,5, 3, 0.40, 5, 4, 2, 5, 1, 0.05, 0.30, 0.5, 0.3],
+    fighter:     [13,4, 4, 0.35, 6, 5, 2, 5, 2, 0.08, 0.50, 0.6, 0.2],
+    corvette:    [15,4, 4, 0.50, 5, 4, 2, 4, 2, 0.10, 0.30, 0.4, 0.1],
+    bomber:      [13,3, 5, 0.55, 6, 7, 3, 4, 0, 0.12, 0.40, 0.3, 0.0],
+    cruiser:     [18,4, 4, 0.45, 4, 3, 3, 5, 2, 0.10, 0.20, 0.5, 0.1],
+    gunship:     [12,3, 4, 0.30, 5, 4, 2, 4, 2, 0.10, 0.70, 0.4, 0.2],
+    dreadnought: [18,3, 6, 0.50, 5, 5, 3, 5, 3, 0.14, 0.50, 0.6, 0.0],
+    shuttle:     [12,3, 5, 0.60, 4, 3, 1, 3, 3, 0.06, 0.00, 0.2, 0.1],
+    saucer:      [7, 3, 6, 0.00, 6, 6, 1, 3, 2, 0.08, 0.20, 0.0, 0.3],
   };
   const PRESET_LABELS = {
     scout:"Scout", interceptor:"Interceptor", fighter:"Fighter", corvette:"Corvette",
@@ -37,110 +39,152 @@
     candy:    ["#FFCFCF","#F43FC5","#66BAC4","#FFFF1A","#73BB98"],
   };
 
-  // ---- shape recipe: every random choice, independent of colour -----------
+  // ---- shape recipe: every random choice, independent of colour or angle ---
   function makeRecipe(presetKey) {
     const [bodyLen, noseLen, coreW, wingStartFrac, wingLen, wingSpan,
-           engineCount, engineLen, cockpitSize, hole, gunOdds] = PRESETS[presetKey];
+           engineCount, engineLen, cockpitSize, hole, gunOdds, finOdds, spikeOdds] = PRESETS[presetKey];
     const totalLen = noseLen + bodyLen;
     const wingStart = noseLen + Math.round(bodyLen * wingStartFrac);
     const wingEnd = Math.min(totalLen, wingStart + wingLen);
 
-    function widthAt(j) {
-      if (j < noseLen) {
+    function widthAt(t) {
+      if (t < noseLen) {
         // nose taper: near-zero at the tip, full core width by the body seam
-        return Math.max(0, Math.round(((j + 1) / noseLen) * coreW));
+        return Math.max(0, Math.round(((t + 1) / noseLen) * coreW));
       }
-      if (j >= wingStart && j < wingEnd) {
+      if (t >= wingStart && t < wingEnd) {
         const span = Math.max(1, wingEnd - wingStart - 1);
-        const t = (j - wingStart) / span;
-        const curve = 1 - Math.abs(t - 0.5) * 2; // widest at mid-wing, tapering at both ends
+        const u = (t - wingStart) / span;
+        const curve = 1 - Math.abs(u - 0.5) * 2; // widest at mid-wing, tapering at both ends
         return coreW + Math.round(wingSpan * curve);
       }
       return coreW;
     }
 
-    // Hull silhouette as (i, j) pairs, like the hero's torso list. Noise only
-    // ever touches the outer edge column, never the interior — keeps the
-    // fuselage solid while still giving a battle-worn, jagged wing edge.
+    // Hull silhouette as (widthIndex, lengthIndex) pairs. Noise only ever
+    // touches the outer edge, never the interior — keeps the fuselage solid
+    // while giving a jagged, battle-worn wing edge.
     const hull = [];
-    for (let j = 0; j < totalLen; j++) {
-      const w = Math.max(1, widthAt(j));
+    for (let t = 0; t < totalLen; t++) {
+      const w = Math.max(1, widthAt(t));
       for (let i = 0; i < w; i++) {
-        if (i === 0 || i < w - 1 || Math.random() > hole) hull.push([i, j]);
+        if (i === 0 || i < w - 1 || Math.random() > hole) hull.push([i, t]);
       }
+    }
+    // Interior greebles: small panel-colour accents scattered on the solid
+    // part of the hull (never the edge) — surface detail the bigger canvas
+    // has room for, without touching the silhouette itself.
+    const greebles = [];
+    for (const [i, t] of hull) {
+      if (i > 0 && i < coreW - 1 && Math.random() < 0.06) greebles.push([i, t]);
     }
 
     const cockpitRow = cockpitSize > 0 ? noseLen + 1 : -1;
-
     // 1 engine -> a single centred nozzle; 2 -> one per side, off-centre;
     // 3 -> a centre engine plus a pair of outboard nacelles.
     const engineCols = engineCount === 1 ? [0] : engineCount === 2 ? [1] : [0, 2];
 
-    // wingtip guns: a short barrel poking forward from the widest wing row,
-    // only on hulls that actually have wings to mount them on
+    // wingtip guns: a short barrel at the widest wing row, only on hulls that
+    // actually have wings to mount them on
     const hasGuns = wingSpan > 0 && Math.random() < gunOdds;
     const gunRow = hasGuns ? wingStart + Math.round((wingEnd - wingStart) / 2) : -1;
     const gunSpan = hasGuns ? Math.max(0, widthAt(gunRow) - 1) : 0;
 
-    return { totalLen, coreW, hull, cockpitRow, cockpitSize, engineCols, engineLen,
-             hasGuns, gunRow, gunSpan };
+    // tail fins and a nose spike/antenna — the two purely decorative extras
+    // that break up the silhouette and read as "fun" detail rather than a
+    // plain tapered wedge
+    const hasFins = Math.random() < finOdds;
+    const hasSpike = Math.random() < spikeOdds;
+
+    // a thin racing stripe down the CORE fuselage only — never the wingspan,
+    // so it never reads as a shoulder-to-shoulder crossbar
+    const stripeStart = noseLen + Math.max(0, Math.round(bodyLen * 0.15));
+    const stripeLen = Math.round(totalLen * 0.4);
+
+    // centre the whole nose-to-engine-tip block in the canvas regardless of
+    // how long this hull class is, so a small scout isn't stranded at one
+    // edge with empty space opposite it
+    const blockLen = totalLen + engineLen;
+    const offset = Math.max(2, Math.floor((SIZE - blockLen) / 2));
+
+    return { totalLen, coreW, hull, greebles, cockpitRow, cockpitSize, engineCols, engineLen,
+             hasGuns, gunRow, gunSpan, hasFins, hasSpike, stripeStart, stripeLen, offset };
   }
 
-  // ---- bake a recipe + 5 colours into a 20x22 pixel grid -------------------
-  function buildGrid(recipe, colors) {
+  // ---- orientations: map (lengthIndex, widthIndex) to mirrored pixel coords
+  // top view: nose at the top, length runs down, mirrored left/right
+  function topOrient(offset) {
+    return (t, i) => [[C0 - i, offset + t], [C1 + i, offset + t]];
+  }
+  // side view: nose at the right, length runs left toward the tail/engines,
+  // mirrored top/bottom — the same hull, viewed from the side
+  function sideOrient(offset) {
+    return (t, i) => [[SIZE - 1 - offset - t, C0 - i], [SIZE - 1 - offset - t, C1 + i]];
+  }
+
+  function paintHull(set, place, recipe, colors) {
     const [hullC, panelC, wingC, glowC, canopyC] = colors;
-    const grid = new Array(W * H).fill(null);
-    const idx = (x, y) => (x >= 0 && x < W && y >= 0 && y < H) ? y * W + x : -1;
-    const set = (x, y, c) => { const i = idx(x, y); if (i >= 0) grid[i] = c; };
-    const { hull, coreW, cockpitRow, cockpitSize, engineCols, engineLen,
-             hasGuns, gunRow, gunSpan, totalLen } = recipe;
+    const { hull, greebles, coreW, cockpitRow, cockpitSize, engineCols, engineLen,
+             hasGuns, gunRow, gunSpan, hasFins, hasSpike, stripeStart, stripeLen, totalLen } = recipe;
 
-    // fuselage + wings — the central band stays the hull colour even where a
+    // fuselage + wings — the core band stays the hull colour even where a
     // wing extends past it, so the fuselage still reads through the wing
-    for (const [i, j] of hull) {
+    for (const [i, t] of hull) {
       const c = i > coreW - 1 ? wingC : hullC;
-      set(CX0 - i, TOP + j, c);
-      set(CX1 + i, TOP + j, c);
+      for (const [x, y] of place(t, i)) set(x, y, c);
     }
-
-    // panel stripe, two-thirds down the hull — the ship's equivalent of the
-    // hero's belt: a deliberate accent line instead of more random noise
-    const stripeRow = Math.round(totalLen * 0.66);
-    for (const [i, j] of hull) {
-      if (j === stripeRow) { set(CX0 - i, TOP + j, panelC); set(CX1 + i, TOP + j, panelC); }
+    for (const [i, t] of greebles) {
+      for (const [x, y] of place(t, i)) set(x, y, panelC);
     }
-
+    // thin racing stripe, clamped so it never runs past the hull's own length
+    const stripeEnd = Math.min(stripeStart + stripeLen, totalLen);
+    for (let t = stripeStart; t < stripeEnd; t++) {
+      for (const [x, y] of place(t, 0)) set(x, y, panelC);
+    }
     // cockpit canopy, just behind the nose tip
     if (cockpitRow >= 0) {
-      for (let dj = 0; dj < 2; dj++) {
+      for (let dt = 0; dt < 2; dt++) {
         for (let i = 0; i < cockpitSize; i++) {
-          set(CX0 - i, TOP + cockpitRow + dj, canopyC);
-          set(CX1 + i, TOP + cockpitRow + dj, canopyC);
+          for (const [x, y] of place(cockpitRow + dt, i)) set(x, y, canopyC);
         }
       }
     }
-
     // engines: a nozzle housing plus a glowing exhaust tip past the tail
-    const tailRow = totalLen - 1;
+    const tailT = totalLen - 1;
     for (const off of engineCols) {
-      for (const cx of [CX0 - off, CX1 + off]) {
-        for (let k = 0; k < engineLen; k++) {
-          set(cx, TOP + tailRow + 1 + k, k === engineLen - 1 ? glowC : panelC);
-        }
+      for (let k = 0; k < engineLen; k++) {
+        for (const [x, y] of place(tailT + 1 + k, off)) set(x, y, k === engineLen - 1 ? glowC : panelC);
       }
     }
-
     // wingtip guns: a short forward-poking barrel at the widest wing row
     if (hasGuns) {
-      for (const cx of [CX0 - gunSpan, CX1 + gunSpan]) {
-        set(cx, TOP + gunRow - 1, panelC);
-        set(cx, TOP + gunRow - 2, glowC);
-      }
+      for (const [x, y] of place(gunRow - 1, gunSpan)) set(x, y, panelC);
+      for (const [x, y] of place(gunRow - 2, gunSpan)) set(x, y, glowC);
     }
-
-    outlinePass(grid, W, H, idx);
-    return grid;
+    // tail fins: a pair of stabiliser caps poking past the hull at the tail
+    if (hasFins) {
+      const finSpan = coreW + 2;
+      for (const [x, y] of place(tailT - 1, finSpan)) set(x, y, panelC);
+      for (const [x, y] of place(tailT, finSpan)) set(x, y, panelC);
+    }
+    // a nose spike/antenna poking out past the tip
+    if (hasSpike) {
+      for (const [x, y] of place(-1, 0)) set(x, y, glowC);
+      for (const [x, y] of place(-2, 0)) set(x, y, glowC);
+    }
   }
 
-  window.SpriteTool.ship = { W, H, PRESETS, PRESET_LABELS, PALETTES, makeRecipe, buildGrid };
+  function buildGridOn(orientFn, recipe, colors) {
+    const grid = new Array(SIZE * SIZE).fill(null);
+    const idx = (x, y) => (x >= 0 && x < SIZE && y >= 0 && y < SIZE) ? y * SIZE + x : -1;
+    const set = (x, y, c) => { const i = idx(x, y); if (i >= 0) grid[i] = c; };
+    paintHull(set, orientFn(recipe.offset), recipe, colors);
+    outlinePass(grid, SIZE, SIZE, idx);
+    return grid;
+  }
+  function buildGrid(recipe, colors) { return buildGridOn(topOrient, recipe, colors); }
+  function buildGridSide(recipe, colors) { return buildGridOn(sideOrient, recipe, colors); }
+
+  window.SpriteTool.ship = { W: SIZE, H: SIZE, PRESETS, PRESET_LABELS, PALETTES, makeRecipe,
+                             buildGrid, buildGridSide };
 })();

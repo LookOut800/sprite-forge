@@ -24,10 +24,10 @@
   <div class="grid">
     <div>
       <div class="panel">
-        <span class="eyebrow">Canvas</span>
+        <span class="eyebrow">Canvas — top-down (edit)</span>
         <div class="stage-scroll">
           <div class="stage">
-            <canvas id="pixels" width="320" height="352"></canvas>
+            <canvas id="pixels" width="270" height="270"></canvas>
           </div>
         </div>
         <div class="toolbar">
@@ -47,9 +47,24 @@
         <div class="toolbar">
           <label class="field"><input type="checkbox" id="symmetryChk" checked> Mirror left/right</label>
           <label class="field"><input type="checkbox" id="gridChk"> Show grid</label>
-          <label class="field">Zoom <input type="range" id="zoomRange" min="8" max="32" value="16"></label>
+          <label class="field">Zoom <input type="range" id="zoomRange" min="5" max="20" value="9"></label>
         </div>
         <div class="swatches" id="swatches" aria-label="Colour palette"></div>
+      </div>
+
+      <div class="panel">
+        <span class="eyebrow">Side-on view (preview)</span>
+        <p style="margin:0 0 10px; color:var(--muted); font-size:13px;">
+          The same hull, viewed from the side instead of from above. This
+          redraws from the generated recipe whenever you generate, reshape
+          or recolour — hand edits on the top-down canvas don't carry over
+          to it, since it's a different angle on the same ship, not a pose.
+        </p>
+        <div class="stage-scroll">
+          <div class="stage">
+            <canvas id="sideView" width="180" height="180"></canvas>
+          </div>
+        </div>
       </div>
     </div>
 
