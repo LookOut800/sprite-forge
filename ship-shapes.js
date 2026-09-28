@@ -14,7 +14,7 @@
 
   // preset: [bodyLen, noseLen, coreHalfWidth, wingStartFrac, wingLen, wingSpan,
   //          engineCount, engineLen, cockpitSize, hullNoise, gunOdds, finOdds,
-  //          spikeOdds, wingStyle, hasBooms]
+  //          spikeOdds, wingStyle, hasBooms, wingAccentOdds]
   // wingStyle is what makes each class read as a different kind of hull:
   //   'delta'    — full span at the root, swept back to a point (fighter-ish)
   //   'straight' — full span across the whole band, blunt tip (bomber-ish)
@@ -22,18 +22,20 @@
   //   'round'    — symmetric bulge, peaks in the middle (the saucer's disc)
   // hasBooms adds a pair of thin engine-tipped rails past the wingtips and
   // drops the centreline engines — a twin-boom silhouette, distinct from
-  // every centreline-engine class.
+  // every centreline-engine class. wingAccentOdds adds a pair of hardpoint
+  // markers along the wing (one near the root, one near the tip) — a fighter
+  // hallmark, dialled up for the combat classes and off elsewhere.
   const PRESETS = {
-    scout:       [9, 4, 2, 0.30, 5, 4,  1, 4, 1, 0.05, 0.00, 0.5, 0.5, "none",     false],
-    interceptor: [12,5, 2, 0.40, 6, 7,  2, 5, 1, 0.05, 0.30, 0.4, 0.3, "delta",    false],
-    fighter:     [13,4, 3, 0.35, 7, 8,  2, 5, 2, 0.08, 0.50, 0.5, 0.2, "delta",    false],
-    corvette:    [15,4, 3, 0.50, 5, 5,  2, 4, 2, 0.10, 0.00, 0.0, 0.1, "straight", true],
-    bomber:      [13,3, 5, 0.55, 7, 8,  3, 4, 0, 0.12, 0.20, 0.3, 0.0, "straight", false],
-    cruiser:     [18,4, 4, 0.45, 5, 7,  3, 5, 2, 0.10, 0.20, 0.4, 0.1, "straight", false],
-    gunship:     [12,3, 3, 0.30, 5, 5,  2, 4, 2, 0.10, 0.80, 0.3, 0.2, "delta",    false],
-    dreadnought: [18,3, 6, 0.50, 6, 7,  3, 5, 3, 0.14, 0.50, 0.5, 0.0, "straight", false],
-    shuttle:     [12,3, 5, 0.60, 4, 3,  1, 3, 3, 0.06, 0.00, 0.2, 0.1, "none",     false],
-    saucer:      [7, 3, 6, 0.00, 6, 6,  1, 3, 2, 0.08, 0.20, 0.0, 0.3, "round",    false],
+    scout:       [9, 4, 2, 0.30, 5, 4,  1, 4, 1, 0.05, 0.00, 0.5, 0.5, "none",     false, 0.0],
+    interceptor: [12,5, 2, 0.40, 6, 7,  2, 5, 1, 0.05, 0.30, 0.4, 0.3, "delta",    false, 0.5],
+    fighter:     [13,4, 3, 0.35, 7, 8,  2, 5, 2, 0.08, 0.90, 0.5, 0.2, "delta",    false, 0.9],
+    corvette:    [15,4, 3, 0.50, 5, 5,  2, 4, 2, 0.10, 0.00, 0.0, 0.1, "straight", true,  0.0],
+    bomber:      [13,3, 5, 0.55, 7, 8,  3, 4, 0, 0.12, 0.20, 0.3, 0.0, "straight", false, 0.0],
+    cruiser:     [18,4, 4, 0.45, 5, 7,  3, 5, 2, 0.10, 0.20, 0.4, 0.1, "straight", false, 0.2],
+    gunship:     [12,3, 3, 0.30, 5, 5,  2, 4, 2, 0.10, 0.80, 0.3, 0.2, "delta",    false, 0.6],
+    dreadnought: [18,3, 6, 0.50, 6, 7,  3, 5, 3, 0.14, 0.50, 0.5, 0.0, "straight", false, 0.3],
+    shuttle:     [12,3, 5, 0.60, 4, 3,  1, 3, 3, 0.06, 0.00, 0.2, 0.1, "none",     false, 0.0],
+    saucer:      [7, 3, 6, 0.00, 6, 6,  1, 3, 2, 0.08, 0.20, 0.0, 0.3, "round",    false, 0.0],
   };
   const PRESET_LABELS = {
     scout:"Scout", interceptor:"Interceptor", fighter:"Fighter", corvette:"Corvette",
@@ -70,7 +72,7 @@
   function makeRecipe(presetKey) {
     const [bodyLen, noseLen, coreW, wingStartFrac, wingLen, wingSpan,
            engineCount, engineLen, cockpitSize, hole, gunOdds, finOdds,
-           spikeOdds, wingStyle, hasBooms] = PRESETS[presetKey];
+           spikeOdds, wingStyle, hasBooms, wingAccentOdds] = PRESETS[presetKey];
     const totalLen = noseLen + bodyLen;
     const wingStart = noseLen + Math.round(bodyLen * wingStartFrac);
     const wingEnd = Math.min(totalLen, wingStart + wingLen);
@@ -137,6 +139,16 @@
     const gunRow = hasGuns ? (wingStyle === "round" ? wingStart + Math.round((wingEnd - wingStart) / 2) : wingStart) : -1;
     const gunSpan = hasGuns ? Math.max(0, widthAt(gunRow) - 1) : 0;
 
+    // wing accents: a hardpoint-style marker out near the widest part of the
+    // wing (the "tip", which for a swept wing is at the root row) and a
+    // second one further in where the wing rejoins the fuselage — a fighter
+    // hallmark, only meaningful on a hull that actually has a flat wing.
+    const hasWingAccents = (wingStyle === "delta" || wingStyle === "straight") && Math.random() < wingAccentOdds;
+    const tipAccentRow = wingStart;
+    const tipAccentSpan = hasWingAccents ? Math.max(0, widthAt(tipAccentRow) - 1) : 0;
+    const rootAccentRow = Math.max(wingStart + 1, wingEnd - 2);
+    const rootAccentSpan = hasWingAccents ? Math.max(0, widthAt(rootAccentRow) - 1) : 0;
+
     // a thin racing stripe down the CORE fuselage only — never the wingspan,
     // so it never reads as a shoulder-to-shoulder crossbar
     const stripeStart = noseLen + Math.max(0, Math.round(bodyLen * 0.15));
@@ -150,6 +162,7 @@
 
     return { totalLen, coreW, hull, greebles, cockpitRow, cockpitSize, engineCols, engineLen,
              hasGuns, gunRow, gunSpan, hasSpike, hasBooms, boomOffset, boomStart, boomEnd,
+             hasWingAccents, tipAccentRow, tipAccentSpan, rootAccentRow, rootAccentSpan,
              stripeStart, stripeLen, offset };
   }
 
@@ -168,6 +181,7 @@
     const [hullC, panelC, wingC, glowC, canopyC] = colors;
     const { hull, greebles, coreW, cockpitRow, cockpitSize, engineCols, engineLen,
              hasGuns, gunRow, gunSpan, hasSpike, hasBooms, boomOffset, boomStart, boomEnd,
+             hasWingAccents, tipAccentRow, tipAccentSpan, rootAccentRow, rootAccentSpan,
              stripeStart, stripeLen, totalLen } = recipe;
 
     // fuselage + wings — the core band stays the hull colour even where a
@@ -208,10 +222,20 @@
         for (const [x, y] of place(t, boomOffset)) set(x, y, c);
       }
     }
-    // wingtip guns: a short forward-poking barrel at the widest wing row
+    // wingtip guns: two floating dots ahead of the widest wing row, with a
+    // gap between them so they read as a detached muzzle flash/tracer
+    // rather than one solid blob
     if (hasGuns) {
       for (const [x, y] of place(gunRow - 1, gunSpan)) set(x, y, panelC);
-      for (const [x, y] of place(gunRow - 2, gunSpan)) set(x, y, glowC);
+      for (const [x, y] of place(gunRow - 3, gunSpan)) set(x, y, glowC);
+    }
+    // wing accents: a hardpoint marker out at the wing's widest point and a
+    // second one where it rejoins the fuselage — the fighter family's
+    // signature detail
+    if (hasWingAccents) {
+      for (const [x, y] of place(tipAccentRow, tipAccentSpan)) set(x, y, canopyC);
+      for (const [x, y] of place(tipAccentRow + 1, tipAccentSpan)) set(x, y, canopyC);
+      for (const [x, y] of place(rootAccentRow, rootAccentSpan)) set(x, y, glowC);
     }
     // a nose spike/antenna poking out past the tip
     if (hasSpike) {
