@@ -35,7 +35,11 @@
     gunship:     [12,3, 3, 0.30, 5, 5,  2, 4, 2, 0.10, 0.80, 0.3, 0.2, "delta",    false, 0.6],
     dreadnought: [18,3, 6, 0.50, 6, 7,  3, 5, 3, 0.14, 0.50, 0.5, 0.0, "straight", false, 0.3],
     shuttle:     [12,3, 5, 0.60, 4, 3,  1, 3, 3, 0.06, 0.00, 0.2, 0.1, "none",     false, 0.0],
-    saucer:      [7, 3, 6, 0.00, 6, 6,  1, 3, 2, 0.08, 0.20, 0.0, 0.3, "round",    false, 0.0],
+    // round: coreW+wingSpan is the disc's radius; noseLen+bodyLen is set to
+    // ~2x that radius so the circular cross-section (see widthAt) comes out
+    // as an actual circle instead of a squashed ellipse. wingStartFrac/
+    // wingLen are unused by the round style.
+    saucer:      [14,4, 4, 0.00, 0, 5,  1, 3, 2, 0.08, 0.20, 0.0, 0.3, "round",    false, 0.0],
   };
   const PRESET_LABELS = {
     scout:"Scout", interceptor:"Interceptor", fighter:"Fighter", corvette:"Corvette",
@@ -90,7 +94,17 @@
 
     function widthAt(t) {
       let w;
-      if (t < noseLen) {
+      if (wingStyle === "round") {
+        // a true disc: one circular cross-section across the WHOLE length,
+        // not a nose taper + separate wing bulge + flat tail — those three
+        // pieces don't add up to a circle (the tail end never taper back
+        // down, and the nose taper is linear, not curved)
+        const cy = (totalLen - 1) / 2;
+        const ry = totalLen / 2;
+        const rx = coreW + wingSpan;
+        const frac = 1 - ((t - cy) / ry) ** 2;
+        w = frac > 0 ? Math.round(rx * Math.sqrt(frac)) : 0;
+      } else if (t < noseLen) {
         // nose taper: near-zero at the tip, full core width by the body seam
         w = Math.max(0, Math.round(((t + 1) / noseLen) * coreW));
       } else if (wingStyle !== "none" && t >= wingStart && t < wingEnd) {
