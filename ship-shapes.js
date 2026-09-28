@@ -10,20 +10,30 @@
   const { outlinePass } = window.SpriteTool;
   const SIZE = 30;
   const C0 = 14, C1 = 15; // the two centre columns/rows the width axis mirrors around
+  const MAX_HALF_WIDTH = SIZE - C1 - 2; // leaves room for the outline pass at the widest wingtip
 
   // preset: [bodyLen, noseLen, coreHalfWidth, wingStartFrac, wingLen, wingSpan,
-  //          engineCount, engineLen, cockpitSize, hullNoise, gunOdds, finOdds, spikeOdds]
+  //          engineCount, engineLen, cockpitSize, hullNoise, gunOdds, finOdds,
+  //          spikeOdds, wingStyle, hasBooms]
+  // wingStyle is what makes each class read as a different kind of hull:
+  //   'delta'    — full span at the root, swept back to a point (fighter-ish)
+  //   'straight' — full span across the whole band, blunt tip (bomber-ish)
+  //   'none'     — no main wing bulge at all (sleek dart or utility pod)
+  //   'round'    — symmetric bulge, peaks in the middle (the saucer's disc)
+  // hasBooms adds a pair of thin engine-tipped rails past the wingtips and
+  // drops the centreline engines — a twin-boom silhouette, distinct from
+  // every centreline-engine class.
   const PRESETS = {
-    scout:       [9, 4, 3, 0.30, 4, 3, 1, 4, 1, 0.05, 0.10, 0.3, 0.4],
-    interceptor: [12,5, 3, 0.40, 5, 4, 2, 5, 1, 0.05, 0.30, 0.5, 0.3],
-    fighter:     [13,4, 4, 0.35, 6, 5, 2, 5, 2, 0.08, 0.50, 0.6, 0.2],
-    corvette:    [15,4, 4, 0.50, 5, 4, 2, 4, 2, 0.10, 0.30, 0.4, 0.1],
-    bomber:      [13,3, 5, 0.55, 6, 7, 3, 4, 0, 0.12, 0.40, 0.3, 0.0],
-    cruiser:     [18,4, 4, 0.45, 4, 3, 3, 5, 2, 0.10, 0.20, 0.5, 0.1],
-    gunship:     [12,3, 4, 0.30, 5, 4, 2, 4, 2, 0.10, 0.70, 0.4, 0.2],
-    dreadnought: [18,3, 6, 0.50, 5, 5, 3, 5, 3, 0.14, 0.50, 0.6, 0.0],
-    shuttle:     [12,3, 5, 0.60, 4, 3, 1, 3, 3, 0.06, 0.00, 0.2, 0.1],
-    saucer:      [7, 3, 6, 0.00, 6, 6, 1, 3, 2, 0.08, 0.20, 0.0, 0.3],
+    scout:       [9, 4, 2, 0.30, 5, 4,  1, 4, 1, 0.05, 0.00, 0.5, 0.5, "none",     false],
+    interceptor: [12,5, 2, 0.40, 6, 7,  2, 5, 1, 0.05, 0.30, 0.4, 0.3, "delta",    false],
+    fighter:     [13,4, 3, 0.35, 7, 8,  2, 5, 2, 0.08, 0.50, 0.5, 0.2, "delta",    false],
+    corvette:    [15,4, 3, 0.50, 5, 5,  2, 4, 2, 0.10, 0.00, 0.0, 0.1, "straight", true],
+    bomber:      [13,3, 5, 0.55, 7, 8,  3, 4, 0, 0.12, 0.20, 0.3, 0.0, "straight", false],
+    cruiser:     [18,4, 4, 0.45, 5, 7,  3, 5, 2, 0.10, 0.20, 0.4, 0.1, "straight", false],
+    gunship:     [12,3, 3, 0.30, 5, 5,  2, 4, 2, 0.10, 0.80, 0.3, 0.2, "delta",    false],
+    dreadnought: [18,3, 6, 0.50, 6, 7,  3, 5, 3, 0.14, 0.50, 0.5, 0.0, "straight", false],
+    shuttle:     [12,3, 5, 0.60, 4, 3,  1, 3, 3, 0.06, 0.00, 0.2, 0.1, "none",     false],
+    saucer:      [7, 3, 6, 0.00, 6, 6,  1, 3, 2, 0.08, 0.20, 0.0, 0.3, "round",    false],
   };
   const PRESET_LABELS = {
     scout:"Scout", interceptor:"Interceptor", fighter:"Fighter", corvette:"Corvette",
@@ -39,26 +49,53 @@
     candy:    ["#FFCFCF","#F43FC5","#66BAC4","#FFFF1A","#73BB98"],
   };
 
+  // A bulge shape shared by the main wing and the tailplane: how far past
+  // coreW the hull extends at length-index t, within [start,end).
+  function bulgeAt(t, start, end, span, style) {
+    const len = Math.max(1, end - start - 1);
+    const u = (t - start) / len;
+    let curve;
+    if (style === "delta") curve = 1 - u;                          // full at root, point at tip
+    else if (style === "straight") curve = u < 0.8 ? 1 : (1 - (u - 0.8) / 0.2); // full span, blunt tip
+    else curve = 1 - Math.abs(u - 0.5) * 2;                        // round: peaks in the middle
+    return Math.round(span * curve);
+  }
+
   // ---- shape recipe: every random choice, independent of colour or angle ---
   function makeRecipe(presetKey) {
     const [bodyLen, noseLen, coreW, wingStartFrac, wingLen, wingSpan,
-           engineCount, engineLen, cockpitSize, hole, gunOdds, finOdds, spikeOdds] = PRESETS[presetKey];
+           engineCount, engineLen, cockpitSize, hole, gunOdds, finOdds,
+           spikeOdds, wingStyle, hasBooms] = PRESETS[presetKey];
     const totalLen = noseLen + bodyLen;
     const wingStart = noseLen + Math.round(bodyLen * wingStartFrac);
     const wingEnd = Math.min(totalLen, wingStart + wingLen);
 
+    // decorative extras, decided up front since they also affect widthAt
+    const hasFins = wingStyle !== "round" && Math.random() < finOdds;
+    const hasSpike = Math.random() < spikeOdds;
+    // a small tailplane just ahead of the engines — always a delta taper
+    // (a pointed stabiliser), regardless of the main wing's own shape, so
+    // even a wingless dart gets a bit of tail flare
+    const tailLen = Math.min(3, Math.max(2, Math.round(wingLen * 0.3)));
+    const tailSpan = Math.round(wingSpan * 0.45);
+    const tailStart = Math.max(wingEnd, totalLen - tailLen);
+    const tailEnd = Math.min(totalLen, tailStart + tailLen);
+
     function widthAt(t) {
+      let w;
       if (t < noseLen) {
         // nose taper: near-zero at the tip, full core width by the body seam
-        return Math.max(0, Math.round(((t + 1) / noseLen) * coreW));
+        w = Math.max(0, Math.round(((t + 1) / noseLen) * coreW));
+      } else if (wingStyle !== "none" && t >= wingStart && t < wingEnd) {
+        w = coreW + bulgeAt(t, wingStart, wingEnd, wingSpan, wingStyle);
+      } else if (hasFins && t >= tailStart && t < tailEnd) {
+        w = coreW + bulgeAt(t, tailStart, tailEnd, tailSpan, "delta");
+      } else {
+        w = coreW;
       }
-      if (t >= wingStart && t < wingEnd) {
-        const span = Math.max(1, wingEnd - wingStart - 1);
-        const u = (t - wingStart) / span;
-        const curve = 1 - Math.abs(u - 0.5) * 2; // widest at mid-wing, tapering at both ends
-        return coreW + Math.round(wingSpan * curve);
-      }
-      return coreW;
+      // a preset's own numbers could still add up to more than the canvas
+      // can fit — clamp so a wingtip never runs off the edge uncapped
+      return Math.min(w, MAX_HALF_WIDTH);
     }
 
     // Hull silhouette as (widthIndex, lengthIndex) pairs. Noise only ever
@@ -80,21 +117,20 @@
     }
 
     const cockpitRow = cockpitSize > 0 ? noseLen + 1 : -1;
-    // 1 engine -> a single centred nozzle; 2 -> one per side, off-centre;
-    // 3 -> a centre engine plus a pair of outboard nacelles.
-    const engineCols = engineCount === 1 ? [0] : engineCount === 2 ? [1] : [0, 2];
+
+    // Twin-boom hulls carry their engines on the booms instead of the
+    // centreline; everything else uses 1/2/3 centreline nozzles.
+    const engineCols = hasBooms ? [] : (engineCount === 1 ? [0] : engineCount === 2 ? [1] : [0, 2]);
+    const boomOffset = hasBooms ? Math.min(coreW + wingSpan + 2, MAX_HALF_WIDTH) : 0;
+    const boomStart = hasBooms ? wingStart : 0;
+    const boomEnd = hasBooms ? totalLen + engineLen : 0;
 
     // wingtip guns: a short barrel at the widest wing row, only on hulls that
-    // actually have wings to mount them on
-    const hasGuns = wingSpan > 0 && Math.random() < gunOdds;
-    const gunRow = hasGuns ? wingStart + Math.round((wingEnd - wingStart) / 2) : -1;
+    // actually have a main wing to mount them on. A delta/straight wing's
+    // widest row is the root; a round bulge's widest row is the middle.
+    const hasGuns = wingStyle !== "none" && wingSpan > 0 && Math.random() < gunOdds;
+    const gunRow = hasGuns ? (wingStyle === "round" ? wingStart + Math.round((wingEnd - wingStart) / 2) : wingStart) : -1;
     const gunSpan = hasGuns ? Math.max(0, widthAt(gunRow) - 1) : 0;
-
-    // tail fins and a nose spike/antenna — the two purely decorative extras
-    // that break up the silhouette and read as "fun" detail rather than a
-    // plain tapered wedge
-    const hasFins = Math.random() < finOdds;
-    const hasSpike = Math.random() < spikeOdds;
 
     // a thin racing stripe down the CORE fuselage only — never the wingspan,
     // so it never reads as a shoulder-to-shoulder crossbar
@@ -108,7 +144,8 @@
     const offset = Math.max(2, Math.floor((SIZE - blockLen) / 2));
 
     return { totalLen, coreW, hull, greebles, cockpitRow, cockpitSize, engineCols, engineLen,
-             hasGuns, gunRow, gunSpan, hasFins, hasSpike, stripeStart, stripeLen, offset };
+             hasGuns, gunRow, gunSpan, hasSpike, hasBooms, boomOffset, boomStart, boomEnd,
+             stripeStart, stripeLen, offset };
   }
 
   // ---- orientations: map (lengthIndex, widthIndex) to mirrored pixel coords
@@ -125,7 +162,8 @@
   function paintHull(set, place, recipe, colors) {
     const [hullC, panelC, wingC, glowC, canopyC] = colors;
     const { hull, greebles, coreW, cockpitRow, cockpitSize, engineCols, engineLen,
-             hasGuns, gunRow, gunSpan, hasFins, hasSpike, stripeStart, stripeLen, totalLen } = recipe;
+             hasGuns, gunRow, gunSpan, hasSpike, hasBooms, boomOffset, boomStart, boomEnd,
+             stripeStart, stripeLen, totalLen } = recipe;
 
     // fuselage + wings — the core band stays the hull colour even where a
     // wing extends past it, so the fuselage still reads through the wing
@@ -156,16 +194,19 @@
         for (const [x, y] of place(tailT + 1 + k, off)) set(x, y, k === engineLen - 1 ? glowC : panelC);
       }
     }
+    // twin booms: thin rails past each wingtip, running from the wing root
+    // out past the tail, ending in their own engine glow — a silhouette no
+    // centreline-engine hull has
+    if (hasBooms) {
+      for (let t = boomStart; t < boomEnd; t++) {
+        const c = t === boomEnd - 1 ? glowC : (t >= totalLen ? panelC : hullC);
+        for (const [x, y] of place(t, boomOffset)) set(x, y, c);
+      }
+    }
     // wingtip guns: a short forward-poking barrel at the widest wing row
     if (hasGuns) {
       for (const [x, y] of place(gunRow - 1, gunSpan)) set(x, y, panelC);
       for (const [x, y] of place(gunRow - 2, gunSpan)) set(x, y, glowC);
-    }
-    // tail fins: a pair of stabiliser caps poking past the hull at the tail
-    if (hasFins) {
-      const finSpan = coreW + 2;
-      for (const [x, y] of place(tailT - 1, finSpan)) set(x, y, panelC);
-      for (const [x, y] of place(tailT, finSpan)) set(x, y, panelC);
     }
     // a nose spike/antenna poking out past the tip
     if (hasSpike) {
