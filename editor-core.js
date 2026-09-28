@@ -54,7 +54,7 @@
   //   galleryKey, defaultCellPx, exportCell, filenamePrefix }
   function createEditor(config) {
     const {
-      W, H, canvas, toastEl, swatchesEl, galleryStripEl,
+      W, H, canvas, toastEl, swatchesEl, galleryStripEl, palettePreviewEl,
       presetSel, paletteSel, buttons, checks, zoomRangeEl,
       palettes, defaultPaletteKey, presetLabels, defaultPresetKey,
       makeRecipe, buildGrid, galleryKey,
@@ -239,9 +239,22 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); }
     });
 
+    function renderPalettePreview(cols) {
+      if (!palettePreviewEl) return;
+      palettePreviewEl.innerHTML = "";
+      cols.forEach(c => {
+        const chip = document.createElement("span");
+        chip.className = "palette-chip";
+        chip.style.background = c;
+        chip.title = c;
+        palettePreviewEl.appendChild(chip);
+      });
+    }
+
     function renderSwatches() {
       const theme = paletteSel.value;
       const cols = palettes[theme] || palettes[firstPaletteKey];
+      renderPalettePreview(cols);
       swatchesEl.innerHTML = "";
       const addSwatch = (color, isChecker) => {
         const b = document.createElement("button");

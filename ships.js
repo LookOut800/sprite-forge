@@ -11,6 +11,7 @@
     toastEl: document.getElementById("toast"),
     swatchesEl: document.getElementById("swatches"),
     galleryStripEl: document.getElementById("galleryStrip"),
+    palettePreviewEl: document.getElementById("palettePreview"),
     presetSel: document.getElementById("presetSel"),
     paletteSel: document.getElementById("paletteSel"),
     buttons: {

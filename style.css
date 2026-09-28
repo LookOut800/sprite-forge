@@ -146,6 +146,12 @@ select{
   border-radius:6px; padding:8px 10px; font-size:15px; margin-bottom:9px;
 }
 
+.palette-preview{ display:flex; gap:5px; margin:-2px 0 11px; }
+.palette-chip{
+  width:20px; height:20px; border-radius:5px; flex-shrink:0;
+  border:1px solid var(--line-soft);
+}
+
 .gen-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:5px; }
 .gen-actions button{ flex:1; min-width:130px; }
 .primary{
