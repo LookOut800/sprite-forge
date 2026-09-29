@@ -442,5 +442,21 @@
     return canvas;
   }
 
-  window.SpriteTool.hero = { W, H, PRESETS, PRESET_LABELS, PALETTES, makeRecipe, buildGrid, buildPoseSheetCanvas };
+  // A smooth N-frame run cycle — the same buildGridProfile math the static
+  // "run 1"/"run 2" poses use, just sampled at more points along the swing
+  // instead of only its two extremes. Uses sin() rather than a linear ramp
+  // between -1 and 1: a swinging limb decelerates to a stop at each extreme
+  // before reversing, it doesn't move at constant angular speed, so an even
+  // linear step between keyframes looks mechanical where a sine wave doesn't.
+  function buildRunCycleFrames(recipe, colors, livePixels, frameCount = 8) {
+    const frames = [];
+    for (let k = 0; k < frameCount; k++) {
+      const stride = Math.sin((2 * Math.PI * k) / frameCount);
+      frames.push(buildGridProfile(recipe, colors, livePixels, stride));
+    }
+    return frames;
+  }
+
+  window.SpriteTool.hero = { W, H, PRESETS, PRESET_LABELS, PALETTES, makeRecipe, buildGrid,
+                             buildPoseSheetCanvas, buildRunCycleFrames };
 })();

@@ -91,6 +91,13 @@
         <div class="gen-actions">
           <button class="primary" id="poseSheetBtn" style="flex:1;">🏃 Preview pose sheet</button>
         </div>
+        <p style="margin:10px 0; color:var(--muted); font-size:15px;">
+          Experimental: an animated run cycle sampled at more points along the
+          same leg/arm swing, instead of just the two stride extremes above.
+        </p>
+        <div class="gen-actions">
+          <button class="secondary" id="runCycleBtn" style="flex:1;">🎞 Preview run cycle (animated)</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -123,6 +130,22 @@
     <div class="modal-actions">
       <button class="secondary" id="poseModalClose2">Close</button>
       <button class="primary" id="poseModalDownload">⭳ Download PNG</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="runCycleModalBackdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <span class="eyebrow" style="margin:0;">Run cycle preview</span>
+      <button class="tbtn" id="runCycleModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="pose-preview-wrap">
+      <canvas id="runCycleCanvas"></canvas>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="runCycleModalClose2">Close</button>
+      <button class="primary" id="runCycleModalDownload">⭳ Download strip PNG</button>
     </div>
   </div>
 </div>
