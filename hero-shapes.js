@@ -458,5 +458,5 @@
   }
 
   window.SpriteTool.hero = { W, H, PRESETS, PRESET_LABELS, PALETTES, makeRecipe, buildGrid,
-                             buildPoseSheetCanvas, buildRunCycleFrames };
+                             buildGridBack, buildPoseSheetCanvas, buildRunCycleFrames };
 })();

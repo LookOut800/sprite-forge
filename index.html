@@ -98,6 +98,16 @@
         <div class="gen-actions">
           <button class="secondary" id="runCycleBtn" style="flex:1;">🎞 Preview run cycle (animated)</button>
         </div>
+        <p style="margin:10px 0; color:var(--muted); font-size:15px;">
+          Experimental: spins the character using only the front/back views
+          you already have — a cosine squash as it turns away from you,
+          swapping to the back past 90°. It doesn't invent a true side
+          silhouette mid-turn (that's a different shape — see the pose
+          sheet's side view), so treat it as a design aid, not an exact render.
+        </p>
+        <div class="gen-actions">
+          <button class="secondary" id="turntableBtn" style="flex:1;">🔄 Turntable (experimental)</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -146,6 +156,28 @@
     <div class="modal-actions">
       <button class="secondary" id="runCycleModalClose2">Close</button>
       <button class="primary" id="runCycleModalDownload">⭳ Download strip PNG</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="turntableModalBackdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <span class="eyebrow" style="margin:0;">Turntable (experimental)</span>
+      <button class="tbtn" id="turntableModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="pose-preview-wrap">
+      <canvas id="turntableCanvas"></canvas>
+    </div>
+    <div class="toolbar" style="margin-top:0;">
+      <label class="field" style="flex:1; gap:10px;">Angle
+        <input type="range" id="turntableSlider" min="0" max="359" value="0" style="flex:1;">
+      </label>
+      <label class="field"><input type="checkbox" id="turntableSpinChk"> Auto-spin</label>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="turntableModalClose2">Close</button>
+      <button class="primary" id="turntableModalDownload">⭳ Download PNG</button>
     </div>
   </div>
 </div>

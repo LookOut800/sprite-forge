@@ -4,7 +4,8 @@
 (() => {
   "use strict";
   const { createEditor, downloadCanvas } = window.SpriteTool;
-  const { W, H, PRESET_LABELS, PALETTES, makeRecipe, buildGrid, buildPoseSheetCanvas, buildRunCycleFrames } = window.SpriteTool.hero;
+  const { W, H, PRESET_LABELS, PALETTES, makeRecipe, buildGrid, buildGridBack,
+          buildPoseSheetCanvas, buildRunCycleFrames } = window.SpriteTool.hero;
 
   const editor = createEditor({
     W, H,
@@ -131,8 +132,86 @@
     editor.showToast("Exported run cycle strip.");
   });
 
+  // turntable — an experimental "spin the character" preview. This is NOT a
+  // real 3D model: front and back share the exact same silhouette (only the
+  // face differs), so a genuine turn only needs a cosine-based horizontal
+  // squash of whichever one is currently facing the camera — the classic
+  // "billboard rotation" trick, using only geometry we actually have. It
+  // deliberately does NOT try to render the true asymmetric side silhouette
+  // mid-turn (buildGridProfile is a structurally different shape — see the
+  // pose sheet's side view for the real one); that would mean inventing
+  // detail we've never observed, the same problem AI video-frame tools have.
+  const TURNTABLE_CELL = 16, TURNTABLE_SPIN_STEP_DEG = 3, TURNTABLE_SPIN_MS = 40;
+  const MIN_TURN_SCALE = 0.12;
+  let turntableFrontGrid = null, turntableBackGrid = null, turntableSpinTimer = null;
+  const turntableModalBackdrop = document.getElementById("turntableModalBackdrop");
+  const turntableCanvas = document.getElementById("turntableCanvas");
+  const turntableCtx = turntableCanvas.getContext("2d");
+  const turntableSlider = document.getElementById("turntableSlider");
+  const turntableSpinChk = document.getElementById("turntableSpinChk");
+
+  function drawTurntableAt(angleDeg) {
+    const cosv = Math.cos((angleDeg * Math.PI) / 180);
+    const scale = Math.max(MIN_TURN_SCALE, Math.abs(cosv));
+    const grid = cosv >= 0 ? turntableFrontGrid : turntableBackGrid;
+
+    const off = document.createElement("canvas");
+    off.width = W; off.height = H;
+    const octx = off.getContext("2d");
+    octx.imageSmoothingEnabled = false;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = grid[y * W + x];
+      if (c) { octx.fillStyle = c; octx.fillRect(x, y, 1, 1); }
+    }
+
+    const fullW = W * TURNTABLE_CELL, fullH = H * TURNTABLE_CELL;
+    turntableCanvas.width = fullW;
+    turntableCanvas.height = fullH;
+    turntableCtx.imageSmoothingEnabled = false;
+    turntableCtx.clearRect(0, 0, fullW, fullH);
+    const dw = Math.max(1, Math.round(fullW * scale));
+    const dx = Math.round((fullW - dw) / 2);
+    turntableCtx.drawImage(off, 0, 0, W, H, dx, 0, dw, fullH);
+  }
+  function closeTurntableModal() {
+    turntableModalBackdrop.hidden = true;
+    clearInterval(turntableSpinTimer);
+    turntableSpinTimer = null;
+    turntableSpinChk.checked = false;
+  }
+  document.getElementById("turntableBtn").addEventListener("click", () => {
+    if (!editor.state.lastRecipe || !editor.state.lastColors) {
+      editor.showToast("This sprite has no shape data to turn — generate one first.");
+      return;
+    }
+    turntableFrontGrid = editor.state.pixels.slice();
+    turntableBackGrid = buildGridBack(editor.state.lastRecipe, editor.state.lastColors, editor.state.pixels);
+    turntableSlider.value = 0;
+    drawTurntableAt(0);
+    turntableModalBackdrop.hidden = false;
+  });
+  turntableSlider.addEventListener("input", (e) => drawTurntableAt(parseInt(e.target.value, 10)));
+  turntableSpinChk.addEventListener("change", (e) => {
+    clearInterval(turntableSpinTimer);
+    turntableSpinTimer = null;
+    if (e.target.checked) {
+      turntableSpinTimer = setInterval(() => {
+        const next = (parseInt(turntableSlider.value, 10) + TURNTABLE_SPIN_STEP_DEG) % 360;
+        turntableSlider.value = next;
+        drawTurntableAt(next);
+      }, TURNTABLE_SPIN_MS);
+    }
+  });
+  document.getElementById("turntableModalClose").addEventListener("click", closeTurntableModal);
+  document.getElementById("turntableModalClose2").addEventListener("click", closeTurntableModal);
+  turntableModalBackdrop.addEventListener("click", (e) => { if (e.target === turntableModalBackdrop) closeTurntableModal(); });
+  document.getElementById("turntableModalDownload").addEventListener("click", () => {
+    downloadCanvas(turntableCanvas, "turntable-frame.png");
+    editor.showToast("Downloaded current angle.");
+  });
+
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closePoseModal(); closeRunCycleModal(); }
+    if (e.key === "Escape") { closePoseModal(); closeRunCycleModal(); closeTurntableModal(); }
   });
 
   editor.boot();
