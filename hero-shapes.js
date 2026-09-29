@@ -4,7 +4,7 @@
 // wiring, undo/redo or the gallery — that's editor-core.js's job.
 (() => {
   "use strict";
-  const { DARK, WHITE, outlinePass } = window.SpriteTool;
+  const { DARK, WHITE, outlinePass, pickNoiseRuns } = window.SpriteTool;
   const W = 16, H = 26, GY = 24;
 
   // preset: [headRx, headRy, torsoHalfWidth, torsoHeight, legLen, armLen, torsoHole, extraOdds]
@@ -77,11 +77,16 @@
       const curve = 1 - Math.abs(t - 0.5) * 2; // 0 at the taper's edges, 1 at its middle
       return Math.max(1, hw - Math.round(pinch * curve));
     }
+    // A few short runs of rows lose their outer edge pixel, rather than an
+    // independent coin flip on every pixel of every row — the old per-pixel
+    // roll read as all-over static; a handful of multi-row notches reads as
+    // actual wear (matches the same technique in ship-shapes.js).
+    const notchedRows = pickNoiseRuns(th, hole);
     const torso = [];
     for (let j = 0; j < th; j++) {
       const w = widthAt(j);
       for (let i = 0; i < hw; i++) {
-        if (i === 0 || (i < w && Math.random() < 0.92 - hole)) torso.push([i, j]);
+        if (i === 0 || i < w - 1 || (i < w && !notchedRows.has(j))) torso.push([i, j]);
       }
     }
     // A belt stripe and a small chest emblem replace random noise with a

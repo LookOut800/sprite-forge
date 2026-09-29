@@ -17,6 +17,25 @@
     return a;
   }
 
+  // Picks a set of indices in [0,length) to "damage" as a few short
+  // contiguous runs rather than independent per-index coin flips. Bernoulli
+  // noise (Math.random() < p at every index) reads as all-over static —
+  // real battle damage or a panel gap is a handful of multi-pixel notches,
+  // not scattered single pixels. `coverage` is roughly the fraction of
+  // indices that end up picked; runs are 1-`maxRun` long.
+  function pickNoiseRuns(length, coverage, maxRun = 3) {
+    const picked = new Set();
+    let budget = Math.round(length * coverage);
+    let guard = length * 2; // a budget that can't be placed shouldn't hang
+    while (budget > 0 && guard-- > 0) {
+      const runLen = Math.min(budget, 1 + Math.floor(Math.random() * maxRun));
+      const start = Math.floor(Math.random() * length);
+      for (let k = 0; k < runLen && start + k < length; k++) picked.add(start + k);
+      budget -= runLen;
+    }
+    return picked;
+  }
+
   // Fills every still-empty cell that's orthogonally adjacent to a filled
   // one with `outlineColor` — a one-pixel silhouette outline around whatever
   // shape was drawn. `idx` maps (x,y) to a grid index, or -1 if out of range.
@@ -488,6 +507,7 @@
   window.SpriteTool.DARK = DARK;
   window.SpriteTool.WHITE = WHITE;
   window.SpriteTool.shuffled = shuffled;
+  window.SpriteTool.pickNoiseRuns = pickNoiseRuns;
   window.SpriteTool.outlinePass = outlinePass;
   window.SpriteTool.downloadCanvas = downloadCanvas;
   window.SpriteTool.createEditor = createEditor;

@@ -7,7 +7,7 @@
 // once and drawn from either angle.
 (() => {
   "use strict";
-  const { outlinePass } = window.SpriteTool;
+  const { outlinePass, pickNoiseRuns } = window.SpriteTool;
   const SIZE = 30;
   const C0 = 14, C1 = 15; // the two centre columns/rows the width axis mirrors around
   const MAX_HALF_WIDTH = SIZE - C1 - 2; // leaves room for the outline pass at the widest wingtip
@@ -61,14 +61,14 @@
   };
 
   // A bulge shape shared by the main wing and the tailplane: how far past
-  // coreW the hull extends at length-index t, within [start,end).
+  // coreW the hull extends at length-index t, within [start,end). Only
+  // 'delta' and 'straight' ever reach here — 'round' hulls (the saucer) get
+  // their own circular cross-section in widthAt instead, since a bulge that
+  // only spans a sub-band of the length can't add up to a closed circle.
   function bulgeAt(t, start, end, span, style) {
     const len = Math.max(1, end - start - 1);
     const u = (t - start) / len;
-    let curve;
-    if (style === "delta") curve = 1 - u;                          // full at root, point at tip
-    else if (style === "straight") curve = u < 0.8 ? 1 : (1 - (u - 0.8) / 0.2); // full span, blunt tip
-    else curve = 1 - Math.abs(u - 0.5) * 2;                        // round: peaks in the middle
+    const curve = style === "delta" ? 1 - u : (u < 0.8 ? 1 : (1 - (u - 0.8) / 0.2));
     return Math.round(span * curve);
   }
 
@@ -105,8 +105,12 @@
         const frac = 1 - ((t - cy) / ry) ** 2;
         w = frac > 0 ? Math.round(rx * Math.sqrt(frac)) : 0;
       } else if (t < noseLen) {
-        // nose taper: near-zero at the tip, full core width by the body seam
-        w = Math.max(0, Math.round(((t + 1) / noseLen) * coreW));
+        // nose taper: 0 at the tip, coreW by the body seam. Floor-dividing
+        // (t+1)*coreW rather than rounding (t+1)/noseLen*coreW distributes
+        // the steps as evenly as an integer taper can be — Math.round on a
+        // shallow ramp repeats a width then jumps two (e.g. 1,2,2,3), which
+        // reads as a notch; this always lands on 0,1,2,...,coreW.
+        w = Math.floor(((t + 1) * coreW) / noseLen);
       } else if (wingStyle !== "none" && t >= wingStart && t < wingEnd) {
         w = coreW + bulgeAt(t, wingStart, wingEnd, wingSpan, wingStyle);
       } else if (hasFins && t >= tailStart && t < tailEnd) {
@@ -119,14 +123,17 @@
       return Math.min(w, MAX_HALF_WIDTH);
     }
 
-    // Hull silhouette as (widthIndex, lengthIndex) pairs. Noise only ever
-    // touches the outer edge, never the interior — keeps the fuselage solid
-    // while giving a jagged, battle-worn wing edge.
+    // Hull silhouette as (widthIndex, lengthIndex) pairs. `notchedRows` picks
+    // a few short RUNS of rows to knock the outer edge off, rather than an
+    // independent coin flip per row — a handful of 1-3 row notches reads as
+    // deliberate panel gaps/damage, where flipping every row independently
+    // just looks like static along the whole edge.
+    const notchedRows = pickNoiseRuns(totalLen, hole);
     const hull = [];
     for (let t = 0; t < totalLen; t++) {
       const w = Math.max(1, widthAt(t));
       for (let i = 0; i < w; i++) {
-        if (i === 0 || i < w - 1 || Math.random() > hole) hull.push([i, t]);
+        if (i === 0 || i < w - 1 || !notchedRows.has(t)) hull.push([i, t]);
       }
     }
     // Interior greebles: small panel-colour accents scattered on the solid
