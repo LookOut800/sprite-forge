@@ -97,6 +97,14 @@
       lastPreset: null,
       lastRecipe: null,
       lastColors: null,
+      // Named frames (e.g. a hero's back/side/run/jump poses): state.pixels
+      // is always the buffer for whichever frame is "active" — every tool
+      // above reads/writes it exactly as if there were only one frame —
+      // while state.frames stashes every OTHER frame's buffer. A consumer
+      // decides what the frame ids mean; the engine just keeps them named
+      // and lets you switch which one is live for editing.
+      frames: {},
+      activeFrameId: "front",
     };
 
     function showToast(msg) {
@@ -157,6 +165,51 @@
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) flipped[y * W + (W - 1 - x)] = state.pixels[y * W + x];
       state.pixels = flipped;
       render();
+    }
+
+    // Stores a named frame's buffer. If it's the currently active frame,
+    // it becomes the live editable canvas immediately; otherwise it's just
+    // stashed for later. Used to hand the engine auto-generated poses.
+    function setFrame(frameId, pixels) {
+      if (frameId === state.activeFrameId) { state.pixels = pixels.slice(); render(); }
+      else state.frames[frameId] = pixels.slice();
+    }
+    // Swaps which frame is live for editing: stashes the current buffer
+    // under its own id, then loads the target frame's buffer (or a blank
+    // one, if this frame doesn't exist yet) into state.pixels. Starts a
+    // fresh undo history per frame rather than a combined one, for now.
+    function switchFrame(frameId) {
+      if (frameId === state.activeFrameId) return;
+      state.frames[state.activeFrameId] = state.pixels.slice();
+      const next = state.frames[frameId];
+      state.pixels = (next ? next.slice() : new Array(W * H).fill(null));
+      delete state.frames[frameId];
+      state.activeFrameId = frameId;
+      state.undoStack = [];
+      state.redoStack = [];
+      render();
+    }
+    // A snapshot of every frame, including the currently active one.
+    function allFrames() {
+      return { ...state.frames, [state.activeFrameId]: state.pixels.slice() };
+    }
+    // Restores a full frame set (e.g. from a saved gallery entry).
+    function loadFrames(frames, activeFrameId) {
+      state.frames = {};
+      for (const id of Object.keys(frames)) {
+        if (id === activeFrameId) continue;
+        state.frames[id] = frames[id].slice();
+      }
+      state.pixels = (frames[activeFrameId] || new Array(W * H).fill(null)).slice();
+      state.activeFrameId = activeFrameId;
+      state.undoStack = [];
+      state.redoStack = [];
+      render();
+    }
+    // Drops every frame but the active one — used when a fresh
+    // generate/reshape/recolour makes any previously-generated poses stale.
+    function resetFrames() {
+      state.frames = {};
     }
 
     function setPixel(x, y, val) {
@@ -345,6 +398,8 @@
       state.lastRecipe = makeRecipe(key);
       state.lastColors = randomColors(paletteSel.value);
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
+      state.activeFrameId = "front";
+      resetFrames();
       render();
     }
     function doReshape() {
@@ -355,6 +410,8 @@
       state.lastRecipe = makeRecipe(key);
       if (!state.lastColors) state.lastColors = randomColors(paletteSel.value);
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
+      state.activeFrameId = "front";
+      resetFrames();
       render();
     }
     function doRecolor() {
@@ -362,6 +419,8 @@
       pushUndo();
       state.lastColors = randomColors(paletteSel.value);
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
+      state.activeFrameId = "front";
+      resetFrames();
       render();
     }
     if (buttons.generate) buttons.generate.addEventListener("click", doGenerate);
@@ -410,11 +469,12 @@
         img.alt = "Saved sprite";
         b.appendChild(img);
         b.addEventListener("click", () => {
-          pushUndo();
-          state.pixels = entry.pixels.slice();
+          const frames = entry.frames
+            ? { ...entry.frames, [entry.activeFrameId || "front"]: entry.pixels }
+            : { front: entry.pixels };
+          loadFrames(frames, entry.activeFrameId || "front");
           state.lastRecipe = entry.recipe || null;
           state.lastColors = entry.colors || null;
-          render();
           showToast("Loaded from gallery.");
         });
         const del = document.createElement("button");
@@ -433,15 +493,18 @@
       });
     }
     if (buttons.save) buttons.save.addEventListener("click", () => {
+      const frames = allFrames();
+      const frameCount = Object.keys(frames).length;
       const entry = {
         id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
-        pixels: state.pixels.slice(), thumb: thumbDataURL(state.pixels),
+        pixels: state.pixels.slice(), thumb: thumbDataURL(frames.front || state.pixels),
         recipe: state.lastRecipe, colors: state.lastColors,
+        frames, activeFrameId: state.activeFrameId,
       };
       state.gallery.unshift(entry);
       persistGallery();
       renderGallery();
-      showToast("Saved to gallery.");
+      showToast(frameCount > 1 ? `Saved sprite sheet (${frameCount} frames) to gallery.` : "Saved to gallery.");
     });
 
     function buildSheetCanvas(entries, cell = 16, gap = 2) {
@@ -500,7 +563,8 @@
       doGenerate();
     }
 
-    return { state, render, pushUndo, undo, redo, doGenerate, doReshape, doRecolor, boot, showToast };
+    return { state, render, pushUndo, undo, redo, doGenerate, doReshape, doRecolor, boot, showToast,
+             setFrame, switchFrame, allFrames, loadFrames, resetFrames };
   }
 
   window.SpriteTool = window.SpriteTool || {};

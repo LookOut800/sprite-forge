@@ -407,41 +407,6 @@
     return grid;
   }
 
-  // pose sheet — front/back/side/run/jump, coloured from the CURRENTLY
-  // ACTIVE canvas. "front" is the live pixels verbatim; every other view
-  // samples its colours from that same canvas (buildGridBack/Jump/Profile
-  // above), so a hand-painted recolour or detail carries into every pose.
-  function buildPoseSheetCanvas(recipe, colors, livePixels) {
-    const views = [
-      ["front", () => livePixels.slice()],
-      ["back",  () => buildGridBack(recipe, colors, livePixels)],
-      ["side",  () => buildGridProfile(recipe, colors, livePixels, 0)],
-      ["run 1", () => buildGridProfile(recipe, colors, livePixels, 1)],
-      ["run 2", () => buildGridProfile(recipe, colors, livePixels, -1)],
-      ["jump",  () => buildGridJump(recipe, colors, livePixels)],
-    ];
-    const cell = 12, pad = 6, labelH = 16;
-    const cw = W * cell, ch = H * cell;
-    const canvas = document.createElement("canvas");
-    canvas.width = views.length * (cw + pad) + pad;
-    canvas.height = ch + labelH + pad * 2;
-    const ctx = canvas.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
-    views.forEach(([name, fn], i) => {
-      const grid = fn();
-      const ox = pad + i * (cw + pad), oy = pad;
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const c = grid[y * W + x];
-        if (c) { ctx.fillStyle = c; ctx.fillRect(ox + x * cell, oy + y * cell, cell, cell); }
-      }
-      ctx.fillStyle = "#9c93c9";
-      ctx.font = "11px 'VT323', monospace";
-      ctx.textAlign = "center";
-      ctx.fillText(name, ox + cw / 2, oy + ch + 12);
-    });
-    return canvas;
-  }
-
   // A smooth N-frame run cycle — the same buildGridProfile math the static
   // "run 1"/"run 2" poses use, just sampled at more points along the swing
   // instead of only its two extremes. Uses sin() rather than a linear ramp
@@ -458,5 +423,5 @@
   }
 
   window.SpriteTool.hero = { W, H, PRESETS, PRESET_LABELS, PALETTES, makeRecipe, buildGrid,
-                             buildGridBack, buildPoseSheetCanvas, buildRunCycleFrames };
+                             buildGridBack, buildGridProfile, buildGridJump, buildRunCycleFrames };
 })();

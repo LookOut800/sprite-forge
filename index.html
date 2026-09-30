@@ -30,6 +30,7 @@
             <canvas id="pixels" width="256" height="416"></canvas>
           </div>
         </div>
+        <div class="frame-tabs" id="frameTabs" aria-label="Pose frame" hidden></div>
         <div class="toolbar">
           <div class="btn-row" role="group" aria-label="Drawing tool">
             <button class="tbtn" data-tool="pencil" aria-pressed="true">✏️ Pencil</button>
@@ -82,31 +83,24 @@
       <div class="panel">
         <span class="eyebrow">Pose sheet</span>
         <p style="margin:0 0 10px; color:var(--muted); font-size:15px;">
-          Turns the active body into front, back, side and jump views, plus a
-          2-frame run cycle. Everything above the hips — head, hair, hats,
-          capes, whatever you've drawn — carries over as a whole. Only the
-          legs and arms actually move, so anything drawn hanging off a hand
-          or foot won't follow it round the bend.
+          Generates back, side, run and jump poses from the active body as
+          their own editable frames — switch between them with the tabs
+          above the canvas and touch any of them up by hand, same tools as
+          the front. Everything above the hips carries over as a whole when
+          they're first generated; only the legs and arms actually move.
         </p>
         <div class="gen-actions">
-          <button class="primary" id="poseSheetBtn" style="flex:1;">🏃 Preview pose sheet</button>
+          <button class="primary" id="genPosesBtn" style="flex:1;">🏃 Generate poses</button>
+        </div>
+        <div class="gen-actions">
+          <button class="secondary" id="poseSheetBtn" style="flex:1;">👁 Preview merged sheet</button>
         </div>
         <p style="margin:10px 0; color:var(--muted); font-size:15px;">
           Experimental: an animated run cycle sampled at more points along the
-          same leg/arm swing, instead of just the two stride extremes above.
+          same leg/arm swing than the fixed run poses above.
         </p>
         <div class="gen-actions">
           <button class="secondary" id="runCycleBtn" style="flex:1;">🎞 Preview run cycle (animated)</button>
-        </div>
-        <p style="margin:10px 0; color:var(--muted); font-size:15px;">
-          Experimental: spins the character using only the front/back views
-          you already have — a cosine squash as it turns away from you,
-          swapping to the back past 90°. It doesn't invent a true side
-          silhouette mid-turn (that's a different shape — see the pose
-          sheet's side view), so treat it as a design aid, not an exact render.
-        </p>
-        <div class="gen-actions">
-          <button class="secondary" id="turntableBtn" style="flex:1;">🔄 Turntable (experimental)</button>
         </div>
       </div>
 
@@ -156,28 +150,6 @@
     <div class="modal-actions">
       <button class="secondary" id="runCycleModalClose2">Close</button>
       <button class="primary" id="runCycleModalDownload">⭳ Download strip PNG</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="turntableModalBackdrop" hidden>
-  <div class="modal">
-    <div class="modal-head">
-      <span class="eyebrow" style="margin:0;">Turntable (experimental)</span>
-      <button class="tbtn" id="turntableModalClose" aria-label="Close">✕</button>
-    </div>
-    <div class="pose-preview-wrap">
-      <canvas id="turntableCanvas"></canvas>
-    </div>
-    <div class="toolbar" style="margin-top:0;">
-      <label class="field" style="flex:1; gap:10px;">Angle
-        <input type="range" id="turntableSlider" min="0" max="359" value="0" style="flex:1;">
-      </label>
-      <label class="field"><input type="checkbox" id="turntableSpinChk"> Auto-spin</label>
-    </div>
-    <div class="modal-actions">
-      <button class="secondary" id="turntableModalClose2">Close</button>
-      <button class="primary" id="turntableModalDownload">⭳ Download PNG</button>
     </div>
   </div>
 </div>

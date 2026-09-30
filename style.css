@@ -107,6 +107,9 @@ canvas#sideView{
   box-shadow: 0 0 0 1px var(--line);
 }
 
+.frame-tabs{ display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+.frame-tabs .tbtn{ padding:6px 12px; font-size:13px; }
+
 .toolbar{
   display:flex; flex-wrap:wrap; gap:9px; align-items:center;
   margin-top:12px;
