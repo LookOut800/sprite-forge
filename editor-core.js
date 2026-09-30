@@ -492,19 +492,30 @@
         galleryStripEl.appendChild(wrap);
       });
     }
-    if (buttons.save) buttons.save.addEventListener("click", () => {
-      const frames = allFrames();
-      const frameCount = Object.keys(frames).length;
+    function addGalleryEntry(frames, thumbFrameId) {
       const entry = {
         id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
-        pixels: state.pixels.slice(), thumb: thumbDataURL(frames.front || state.pixels),
+        pixels: state.pixels.slice(), thumb: thumbDataURL(frames[thumbFrameId] || state.pixels),
         recipe: state.lastRecipe, colors: state.lastColors,
-        frames, activeFrameId: state.activeFrameId,
+        frames, activeFrameId: state.activeFrameId in frames ? state.activeFrameId : thumbFrameId,
       };
       state.gallery.unshift(entry);
       persistGallery();
       renderGallery();
-      showToast(frameCount > 1 ? `Saved sprite sheet (${frameCount} frames) to gallery.` : "Saved to gallery.");
+    }
+    // saves ONLY the frame you're currently looking at, as its own
+    // standalone single-pose entry — independent of any other poses
+    if (buttons.save) buttons.save.addEventListener("click", () => {
+      addGalleryEntry({ [state.activeFrameId]: state.pixels.slice() }, state.activeFrameId);
+      showToast("Saved pose to gallery.");
+    });
+    // bundles every generated/edited frame into one entry
+    if (buttons.saveSheet) buttons.saveSheet.addEventListener("click", () => {
+      const frames = allFrames();
+      const frameCount = Object.keys(frames).length;
+      if (frameCount <= 1) { showToast("Generate poses first to save a full sprite sheet."); return; }
+      addGalleryEntry(frames, "front");
+      showToast(`Saved sprite sheet (${frameCount} frames) to gallery.`);
     });
 
     function buildSheetCanvas(entries, cell = 16, gap = 2) {

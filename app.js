@@ -22,6 +22,7 @@
       reshape: document.getElementById("reshapeBtn"),
       recolor: document.getElementById("recolorBtn"),
       save: document.getElementById("saveBtn"),
+      saveSheet: document.getElementById("saveSheetBtn"),
       sheet: document.getElementById("sheetBtn"),
       download: document.getElementById("downloadBtn"),
       undo: document.getElementById("undoBtn"),
