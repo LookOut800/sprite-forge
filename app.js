@@ -54,7 +54,7 @@
   // whichever pose is active — no new drawing code needed for this at all.
   const FRAME_ORDER = [
     ["front", "Front"], ["back", "Back"], ["side", "Side"],
-    ["run1", "Run 1"], ["run2", "Run 2"], ["jump", "Jump"],
+    ["run1", "Run 1"], ["run2", "Run 2"], ["jumpr", "Jump →"], ["jumpl", "Jump ←"],
   ];
   const frameTabsEl = document.getElementById("frameTabs");
   function renderFrameTabs() {
@@ -87,7 +87,8 @@
     editor.setFrame("side", buildGridProfile(recipe, colors, frontPixels, 0));
     editor.setFrame("run1", buildGridProfile(recipe, colors, frontPixels, 1));
     editor.setFrame("run2", buildGridProfile(recipe, colors, frontPixels, -1));
-    editor.setFrame("jump", buildGridJump(recipe, colors, frontPixels));
+    editor.setFrame("jumpr", buildGridJump(recipe, colors, frontPixels, 1));
+    editor.setFrame("jumpl", buildGridJump(recipe, colors, frontPixels, -1));
     renderFrameTabs();
     editor.showToast("Generated poses — switch tabs above the canvas to edit each one.");
   });

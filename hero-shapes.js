@@ -322,18 +322,23 @@
     return grid;
   }
 
-  // ---- jump: legs tuck outward, arms raise, body lifts one pixel -----------
-  // Everything is sampled from the live canvas at its ORIGINAL (unposed)
-  // position, then redrawn at the jump's angle/offset — so a hand-painted
-  // recolour anywhere on the body still shows up here.
-  function buildGridJump(recipe, colors, livePixels) {
+  // ---- jump: a directional leap, viewed in profile like side/run rather --
+  // ---- than the old symmetric front-facing splay ---------------------------
+  // Both legs tuck toward the body (steeper than any running stride — a
+  // jump pulls the legs in rather than reaching for the ground) and the
+  // whole body lifts a pixel. `faceDir`: +1 = jumping right, -1 = left.
+  // Same single-eye/nose-bump profile treatment as buildGridProfile, so all
+  // three "in motion" poses (side, run, jump) read as one visual language.
+  function buildGridJump(recipe, colors, livePixels, faceDir) {
     const grid = new Array(W * H).fill(null);
     const idx = (x, y) => (x >= 0 && x < W && y >= 0 && y < H) ? y * W + x : -1;
     const set = (x, y, c) => { const i = idx(x, y); if (i >= 0) grid[i] = c; };
     const sample = (x, y, fallback) => { const i = idx(x, y); return (i >= 0 && livePixels[i]) || fallback; };
-    const { hw, th, arm, leg } = recipe;
-    const { hipY, ttop } = computeLayout(recipe);
+    const { hw, th, hwid, arm, leg, ei, ej, hh } = recipe;
+    const { hipY, ttop, htop } = computeLayout(recipe);
     const by = -1;
+    const legLeadAngle = 62, legTrailAngle = -55;
+    const armLeadAngle = -28, armTrailAngle = 30;
 
     // Everything above the hips rides up with the jump as one block — this
     // is what carries a whole hand-drawn headdress or cape, not just the
@@ -342,13 +347,24 @@
     copyBand(set, livePixels, 0, ttop, 0, by);       // head + anything above the torso
     copyBand(set, livePixels, ttop, ttop + th, 0, by); // torso band: belt, emblem, flare, cape, resting arms
 
-    const legLCol = 9 - hw, legRCol = 6 + hw;
-    limbAngledSampled(set, legLCol, hipY + by, leg, 35, -1, (r) => sample(legLCol, hipY + r, colors[2]), true, true);
-    limbAngledSampled(set, legRCol, hipY + by, leg, 35, 1, (r) => sample(legRCol, hipY + r, colors[2]), true, true);
-    const thickArms = hw >= 4;
-    const armLCol = 7 - hw, armRCol = 8 + hw;
-    limbAngledSampled(set, armLCol, ttop + 1 + by, arm, 165, -1, (r) => sample(armLCol, ttop + 1 + r, colors[0]), thickArms, false);
-    limbAngledSampled(set, armRCol, ttop + 1 + by, arm, 165, 1, (r) => sample(armRCol, ttop + 1 + r, colors[0]), thickArms, false);
+    const legBackOrigin = 9 - hw, legFrontOrigin = 6 + hw;
+    limbAngledSampled(set, 6 + faceDir, hipY + by, leg, legTrailAngle, faceDir,
+                       (r) => sample(legBackOrigin, hipY + r, colors[2]), false, true);
+    limbAngledSampled(set, 8 + faceDir, hipY + by, leg, legLeadAngle, faceDir,
+                       (r) => sample(legFrontOrigin, hipY + r, colors[2]), false, true);
+
+    const armBackOrigin = 7 - hw, armFrontOrigin = 8 + hw;
+    limbAngledSampled(set, 7 - faceDir, ttop + 1 + by, arm, armTrailAngle, faceDir,
+                       (r) => sample(armBackOrigin, ttop + 1 + r, colors[0]), false, false);
+    limbAngledSampled(set, 8 + faceDir, ttop + 1 + by, arm, armLeadAngle, faceDir,
+                       (r) => sample(armFrontOrigin, ttop + 1 + r, colors[0]), false, false);
+
+    // single eye + nose bump, lifted with the rest of the head, so a jump
+    // reads as facing the direction it's leaping in
+    const eyeX = 7 + faceDir * Math.max(1, hwid - 1);
+    set(eyeX, htop + ej + by, sample(8 + ei, htop + ej, DARK));
+    const noseFallback = sample(7 + hwid - 1, htop + Math.min(ej + 1, hh - 1), colors[0]);
+    set(8 + faceDir * hwid, htop + ej + 1 + by, noseFallback);
 
     outlinePass(grid, W, H, idx);
     return grid;
