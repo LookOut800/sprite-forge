@@ -155,6 +155,17 @@ select{
   border:1px solid var(--line-soft);
 }
 
+.seed-row{
+  display:flex; align-items:center; gap:8px; margin-top:9px;
+  font-size:12px; color:var(--muted);
+}
+.seed-row .seed-label{ letter-spacing:1px; text-transform:uppercase; }
+.seed-row .seed-value{
+  font-family:ui-monospace, monospace; color:var(--ink); flex:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.seed-row button{ flex-shrink:0; padding:6px 10px; font-size:12px; }
+
 .gen-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:5px; }
 .gen-actions button{ flex:1; min-width:130px; }
 .primary{

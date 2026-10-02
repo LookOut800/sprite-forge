@@ -17,6 +17,32 @@
     return a;
   }
 
+  // A small, well-known deterministic PRNG (mulberry32): same seed in, same
+  // sequence of [0,1) floats out, every time. Used to make generation
+  // reproducible without threading an rng parameter through every random
+  // call across hero-shapes.js/ship-shapes.js — those files call
+  // Math.random() directly throughout, so withSeededRandom() temporarily
+  // swaps the global in for the duration of one synchronous generation call
+  // and restores it afterward. Safe because JS is single-threaded and every
+  // caller here is synchronous (no await/setTimeout between swap and restore).
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function withSeededRandom(seed, fn) {
+    const original = Math.random;
+    Math.random = mulberry32(seed);
+    try { return fn(); } finally { Math.random = original; }
+  }
+  function randomSeed() {
+    return (Math.random() * 0xFFFFFFFF) >>> 0;
+  }
+
   // Picks a set of indices in [0,length) to "damage" as a few short
   // contiguous runs rather than independent per-index coin flips. Bernoulli
   // noise (Math.random() < p at every index) reads as all-over static —
@@ -73,7 +99,7 @@
   //   galleryKey, defaultCellPx, exportCell, filenamePrefix }
   function createEditor(config) {
     const {
-      W, H, canvas, toastEl, swatchesEl, galleryStripEl, palettePreviewEl,
+      W, H, canvas, toastEl, swatchesEl, galleryStripEl, palettePreviewEl, seedDisplayEl,
       presetSel, paletteSel, buttons, checks, zoomRangeEl,
       palettes, defaultPaletteKey, presetLabels, defaultPresetKey,
       makeRecipe, buildGrid, galleryKey,
@@ -97,6 +123,7 @@
       lastPreset: null,
       lastRecipe: null,
       lastColors: null,
+      lastSeed: null,
       // Named frames (e.g. a hero's back/side/run/jump poses): state.pixels
       // is always the buffer for whichever frame is "active" — every tool
       // above reads/writes it exactly as if there were only one frame —
@@ -391,41 +418,94 @@
       return presetSel.value === "random" ? randomPresetKey() : presetSel.value;
     }
 
-    function doGenerate() {
+    // Every random draw a generation makes (which preset "random" picks,
+    // the shape recipe's own rolls, the colour shuffle) happens inside one
+    // withSeededRandom() call, so (preset, palette, seed) together fully
+    // determine the result — the same three values always reproduce the
+    // same recipe and colours, which is what makes a generation shareable
+    // and testable instead of a one-off you can never get back.
+    function showSeed() {
+      if (seedDisplayEl) seedDisplayEl.textContent = state.lastSeed != null ? String(state.lastSeed) : "";
+    }
+    function updatePermalink() {
+      if (!state.lastRecipe || state.lastSeed == null) return;
+      const params = new URLSearchParams();
+      params.set("preset", state.lastPreset || "");
+      params.set("palette", paletteSel.value);
+      params.set("seed", String(state.lastSeed));
+      history.replaceState(null, "", "#" + params.toString());
+    }
+    function readPermalink() {
+      if (!location.hash) return null;
+      const params = new URLSearchParams(location.hash.slice(1));
+      const seed = params.get("seed"), preset = params.get("preset"), palette = params.get("palette");
+      if (seed === null || !preset || !palette) return null;
+      const seedNum = parseInt(seed, 10);
+      if (!Number.isFinite(seedNum)) return null;
+      return { seed: seedNum, preset, palette };
+    }
+
+    function doGenerate(explicitSeed) {
       pushUndo();
-      const key = currentPresetKey();
-      state.lastPreset = key;
-      state.lastRecipe = makeRecipe(key);
-      state.lastColors = randomColors(paletteSel.value);
+      const seed = explicitSeed != null ? explicitSeed : randomSeed();
+      withSeededRandom(seed, () => {
+        const key = currentPresetKey();
+        state.lastPreset = key;
+        state.lastRecipe = makeRecipe(key);
+        state.lastColors = randomColors(paletteSel.value);
+      });
+      state.lastSeed = seed;
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
       state.activeFrameId = "front";
       resetFrames();
       render();
+      showSeed();
+      updatePermalink();
     }
-    function doReshape() {
-      if (!state.lastRecipe) return doGenerate();
+    function doReshape(explicitSeed) {
+      if (!state.lastRecipe) return doGenerate(explicitSeed);
       pushUndo();
-      const key = currentPresetKey();
-      state.lastPreset = key;
-      state.lastRecipe = makeRecipe(key);
-      if (!state.lastColors) state.lastColors = randomColors(paletteSel.value);
+      const seed = explicitSeed != null ? explicitSeed : randomSeed();
+      withSeededRandom(seed, () => {
+        const key = currentPresetKey();
+        state.lastPreset = key;
+        state.lastRecipe = makeRecipe(key);
+        if (!state.lastColors) state.lastColors = randomColors(paletteSel.value);
+      });
+      state.lastSeed = seed;
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
       state.activeFrameId = "front";
       resetFrames();
       render();
+      showSeed();
+      updatePermalink();
     }
-    function doRecolor() {
-      if (!state.lastRecipe) return doGenerate();
+    function doRecolor(explicitSeed) {
+      if (!state.lastRecipe) return doGenerate(explicitSeed);
       pushUndo();
-      state.lastColors = randomColors(paletteSel.value);
+      const seed = explicitSeed != null ? explicitSeed : randomSeed();
+      withSeededRandom(seed, () => { state.lastColors = randomColors(paletteSel.value); });
+      state.lastSeed = seed;
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
       state.activeFrameId = "front";
       resetFrames();
       render();
+      showSeed();
+      updatePermalink();
     }
-    if (buttons.generate) buttons.generate.addEventListener("click", doGenerate);
-    if (buttons.reshape) buttons.reshape.addEventListener("click", doReshape);
-    if (buttons.recolor) buttons.recolor.addEventListener("click", doRecolor);
+    if (buttons.generate) buttons.generate.addEventListener("click", () => doGenerate());
+    if (buttons.reshape) buttons.reshape.addEventListener("click", () => doReshape());
+    if (buttons.recolor) buttons.recolor.addEventListener("click", () => doRecolor());
+    if (buttons.copyLink) buttons.copyLink.addEventListener("click", async () => {
+      if (!state.lastRecipe) { showToast("Generate something first."); return; }
+      updatePermalink();
+      try {
+        await navigator.clipboard.writeText(location.href);
+        showToast("Link copied — shares this exact creation.");
+      } catch (e) {
+        showToast("Couldn't copy automatically — the address bar already has the link.");
+      }
+    });
 
     function thumbDataURL(pixels) {
       const scale = 3;
@@ -475,6 +555,10 @@
           loadFrames(frames, entry.activeFrameId || "front");
           state.lastRecipe = entry.recipe || null;
           state.lastColors = entry.colors || null;
+          state.lastPreset = entry.preset || null;
+          state.lastSeed = entry.seed != null ? entry.seed : null;
+          showSeed();
+          updatePermalink();
           showToast("Loaded from gallery.");
         });
         const del = document.createElement("button");
@@ -497,6 +581,7 @@
         id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
         pixels: state.pixels.slice(), thumb: thumbDataURL(frames[thumbFrameId] || state.pixels),
         recipe: state.lastRecipe, colors: state.lastColors,
+        preset: state.lastPreset, seed: state.lastSeed,
         frames, activeFrameId: state.activeFrameId in frames ? state.activeFrameId : thumbFrameId,
       };
       state.gallery.unshift(entry);
@@ -568,10 +653,19 @@
     });
 
     function boot() {
-      renderSwatches();
       loadGallery();
       renderGallery();
-      doGenerate();
+      const shared = readPermalink();
+      if (shared && presetLabels[shared.preset] !== undefined && palettes[shared.palette]) {
+        presetSel.value = shared.preset;
+        paletteSel.value = shared.palette;
+        renderSwatches();
+        doGenerate(shared.seed);
+        showToast("Loaded a shared creation.");
+      } else {
+        renderSwatches();
+        doGenerate();
+      }
     }
 
     return { state, render, pushUndo, undo, redo, doGenerate, doReshape, doRecolor, boot, showToast,
@@ -583,6 +677,8 @@
   window.SpriteTool.WHITE = WHITE;
   window.SpriteTool.shuffled = shuffled;
   window.SpriteTool.pickNoiseRuns = pickNoiseRuns;
+  window.SpriteTool.mulberry32 = mulberry32;
+  window.SpriteTool.withSeededRandom = withSeededRandom;
   window.SpriteTool.outlinePass = outlinePass;
   window.SpriteTool.downloadCanvas = downloadCanvas;
   window.SpriteTool.createEditor = createEditor;
