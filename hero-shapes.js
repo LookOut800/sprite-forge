@@ -7,24 +7,27 @@
   const { DARK, WHITE, outlinePass, pickNoiseRuns } = window.SpriteTool;
   const W = 16, H = 26, GY = 24;
 
-  // preset: [headRx, headRy, torsoHalfWidth, torsoHeight, legLen, armLen, torsoHole, extraOdds]
+  // Named fields rather than a positional array — a reordered or miscounted
+  // array entry fails silently (wrong number lands in the wrong role); a
+  // typo'd object key throws immediately, and every preset is self-
+  // documenting without cross-referencing a comment above it.
   const PRESETS = {
-    stick:   [2.4,2.4,2,4,5,4,0.00,0.4],
-    bighead: [4.0,3.6,2,3,3,2,0.05,0.4],
-    stocky:  [3.0,2.6,4,5,3,4,0.04,0.4],
-    long:    [2.6,3.0,3,6,5,5,0.05,0.3],
-    ragged:  [3.2,3.0,3,4,4,3,0.18,0.6],
-    tiny:    [3.0,2.8,2,3,2,2,0.00,0.8],
-    knight:  [2.8,2.6,5,5,4,5,0.02,0.5],
-    runner:  [2.2,2.4,2,5,6,4,0.00,0.3],
-    giant:   [3.6,3.0,5,6,3,5,0.05,0.4],
-    wisp:    [3.4,3.2,1,2,2,2,0.00,0.2],
-    man:     [2.2,2.6,3,7,7,6,0.00,1.0],
-    woman:   [2.0,2.6,2,7,7,6,0.00,1.0],
-    warrior: [2.0,2.4,3,6,6,6,0.00,1.0],
-    mage:    [2.0,2.6,2,8,6,5,0.00,1.0],
-    scout:   [2.0,2.4,2,6,7,5,0.00,1.0],
-    ranger:  [2.0,2.4,2,6,7,5,0.00,1.0],
+    stick:   { headRx:2.4, headRy:2.4, torsoHalfWidth:2, torsoHeight:4, legLen:5, armLen:4, torsoHole:0.00, extraOdds:0.4 },
+    bighead: { headRx:4.0, headRy:3.6, torsoHalfWidth:2, torsoHeight:3, legLen:3, armLen:2, torsoHole:0.05, extraOdds:0.4 },
+    stocky:  { headRx:3.0, headRy:2.6, torsoHalfWidth:4, torsoHeight:5, legLen:3, armLen:4, torsoHole:0.04, extraOdds:0.4 },
+    long:    { headRx:2.6, headRy:3.0, torsoHalfWidth:3, torsoHeight:6, legLen:5, armLen:5, torsoHole:0.05, extraOdds:0.3 },
+    ragged:  { headRx:3.2, headRy:3.0, torsoHalfWidth:3, torsoHeight:4, legLen:4, armLen:3, torsoHole:0.18, extraOdds:0.6 },
+    tiny:    { headRx:3.0, headRy:2.8, torsoHalfWidth:2, torsoHeight:3, legLen:2, armLen:2, torsoHole:0.00, extraOdds:0.8 },
+    knight:  { headRx:2.8, headRy:2.6, torsoHalfWidth:5, torsoHeight:5, legLen:4, armLen:5, torsoHole:0.02, extraOdds:0.5 },
+    runner:  { headRx:2.2, headRy:2.4, torsoHalfWidth:2, torsoHeight:5, legLen:6, armLen:4, torsoHole:0.00, extraOdds:0.3 },
+    giant:   { headRx:3.6, headRy:3.0, torsoHalfWidth:5, torsoHeight:6, legLen:3, armLen:5, torsoHole:0.05, extraOdds:0.4 },
+    wisp:    { headRx:3.4, headRy:3.2, torsoHalfWidth:1, torsoHeight:2, legLen:2, armLen:2, torsoHole:0.00, extraOdds:0.2 },
+    man:     { headRx:2.2, headRy:2.6, torsoHalfWidth:3, torsoHeight:7, legLen:7, armLen:6, torsoHole:0.00, extraOdds:1.0 },
+    woman:   { headRx:2.0, headRy:2.6, torsoHalfWidth:2, torsoHeight:7, legLen:7, armLen:6, torsoHole:0.00, extraOdds:1.0 },
+    warrior: { headRx:2.0, headRy:2.4, torsoHalfWidth:3, torsoHeight:6, legLen:6, armLen:6, torsoHole:0.00, extraOdds:1.0 },
+    mage:    { headRx:2.0, headRy:2.6, torsoHalfWidth:2, torsoHeight:8, legLen:6, armLen:5, torsoHole:0.00, extraOdds:1.0 },
+    scout:   { headRx:2.0, headRy:2.4, torsoHalfWidth:2, torsoHeight:6, legLen:7, armLen:5, torsoHole:0.00, extraOdds:1.0 },
+    ranger:  { headRx:2.0, headRy:2.4, torsoHalfWidth:2, torsoHeight:6, legLen:7, armLen:5, torsoHole:0.00, extraOdds:1.0 },
   };
   const PRESET_LABELS = {
     stick:"Stick figure", bighead:"Big head", stocky:"Stocky", long:"Long-limbed",
@@ -54,7 +57,8 @@
 
   // ---- shape recipe: every random choice, independent of colour -----------
   function makeRecipe(presetKey) {
-    const [hrx, hry, hw, th, leg, arm, hole, top] = PRESETS[presetKey];
+    const { headRx: hrx, headRy: hry, torsoHalfWidth: hw, torsoHeight: th,
+            legLen: leg, armLen: arm, torsoHole: hole, extraOdds: top } = PRESETS[presetKey];
     const hh = Math.max(4, Math.round(hry * 2));
     const hwid = Math.max(2, Math.round(hrx));
     const cy = (hh - 1) / 2;

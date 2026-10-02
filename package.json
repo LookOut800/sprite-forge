@@ -1,0 +1,8 @@
+{
+  "name": "sprite-forge",
+  "private": true,
+  "description": "A no-build-step, browser-based pixel-art sprite generator (hero + ship editors).",
+  "scripts": {
+    "test": "node tests/run.js"
+  }
+}

@@ -12,9 +12,11 @@
   const C0 = 14, C1 = 15; // the two centre columns/rows the width axis mirrors around
   const MAX_HALF_WIDTH = SIZE - C1 - 2; // leaves room for the outline pass at the widest wingtip
 
-  // preset: [bodyLen, noseLen, coreHalfWidth, wingStartFrac, wingLen, wingSpan,
-  //          engineCount, engineLen, cockpitSize, hullNoise, gunOdds, finOdds,
-  //          spikeOdds, wingStyle, hasBooms, wingAccentOdds]
+  // Named fields rather than a positional array — a reordered or miscounted
+  // array entry fails silently (wrong number lands in the wrong role, as a
+  // real bug this session showed); a typo'd object key throws immediately,
+  // and every preset is self-documenting without cross-referencing a
+  // comment above it.
   // wingStyle is what makes each class read as a different kind of hull:
   //   'delta'    — full span at the root, swept back to a point (fighter-ish)
   //   'straight' — full span across the whole band, blunt tip (bomber-ish)
@@ -26,20 +28,20 @@
   // markers along the wing (one near the root, one near the tip) — a fighter
   // hallmark, dialled up for the combat classes and off elsewhere.
   const PRESETS = {
-    scout:       [9, 4, 2, 0.30, 5, 4,  1, 4, 1, 0.05, 0.00, 0.5, 0.5, "none",     false, 0.0],
-    interceptor: [12,5, 2, 0.40, 6, 7,  2, 5, 1, 0.05, 0.30, 0.4, 0.3, "delta",    false, 0.5],
-    fighter:     [13,4, 3, 0.35, 7, 8,  2, 5, 2, 0.08, 0.90, 0.5, 0.2, "delta",    false, 0.9],
-    corvette:    [15,4, 3, 0.50, 5, 5,  2, 4, 2, 0.10, 0.00, 0.0, 0.1, "straight", true,  0.0],
-    bomber:      [13,3, 5, 0.55, 7, 8,  3, 4, 0, 0.12, 0.20, 0.3, 0.0, "straight", false, 0.0],
-    cruiser:     [18,4, 4, 0.45, 5, 7,  3, 5, 2, 0.10, 0.20, 0.4, 0.1, "straight", false, 0.2],
-    gunship:     [12,3, 3, 0.30, 5, 5,  2, 4, 2, 0.10, 0.80, 0.3, 0.2, "delta",    false, 0.6],
-    dreadnought: [18,3, 6, 0.50, 6, 7,  3, 5, 3, 0.14, 0.50, 0.5, 0.0, "straight", false, 0.3],
-    shuttle:     [12,3, 5, 0.60, 4, 3,  1, 3, 3, 0.06, 0.00, 0.2, 0.1, "none",     false, 0.0],
+    scout:       { bodyLen:9,  noseLen:4, coreW:2, wingStartFrac:0.30, wingLen:5, wingSpan:4, engineCount:1, engineLen:4, cockpitSize:1, hole:0.05, gunOdds:0.00, finOdds:0.5, spikeOdds:0.5, wingStyle:"none",     hasBooms:false, wingAccentOdds:0.0 },
+    interceptor: { bodyLen:12, noseLen:5, coreW:2, wingStartFrac:0.40, wingLen:6, wingSpan:7, engineCount:2, engineLen:5, cockpitSize:1, hole:0.05, gunOdds:0.30, finOdds:0.4, spikeOdds:0.3, wingStyle:"delta",    hasBooms:false, wingAccentOdds:0.5 },
+    fighter:     { bodyLen:13, noseLen:4, coreW:3, wingStartFrac:0.35, wingLen:7, wingSpan:8, engineCount:2, engineLen:5, cockpitSize:2, hole:0.08, gunOdds:0.90, finOdds:0.5, spikeOdds:0.2, wingStyle:"delta",    hasBooms:false, wingAccentOdds:0.9 },
+    corvette:    { bodyLen:15, noseLen:4, coreW:3, wingStartFrac:0.50, wingLen:5, wingSpan:5, engineCount:2, engineLen:4, cockpitSize:2, hole:0.10, gunOdds:0.00, finOdds:0.0, spikeOdds:0.1, wingStyle:"straight", hasBooms:true,  wingAccentOdds:0.0 },
+    bomber:      { bodyLen:13, noseLen:3, coreW:5, wingStartFrac:0.55, wingLen:7, wingSpan:8, engineCount:3, engineLen:4, cockpitSize:0, hole:0.12, gunOdds:0.20, finOdds:0.3, spikeOdds:0.0, wingStyle:"straight", hasBooms:false, wingAccentOdds:0.0 },
+    cruiser:     { bodyLen:18, noseLen:4, coreW:4, wingStartFrac:0.45, wingLen:5, wingSpan:7, engineCount:3, engineLen:5, cockpitSize:2, hole:0.10, gunOdds:0.20, finOdds:0.4, spikeOdds:0.1, wingStyle:"straight", hasBooms:false, wingAccentOdds:0.2 },
+    gunship:     { bodyLen:12, noseLen:3, coreW:3, wingStartFrac:0.30, wingLen:5, wingSpan:5, engineCount:2, engineLen:4, cockpitSize:2, hole:0.10, gunOdds:0.80, finOdds:0.3, spikeOdds:0.2, wingStyle:"delta",    hasBooms:false, wingAccentOdds:0.6 },
+    dreadnought: { bodyLen:18, noseLen:3, coreW:6, wingStartFrac:0.50, wingLen:6, wingSpan:7, engineCount:3, engineLen:5, cockpitSize:3, hole:0.14, gunOdds:0.50, finOdds:0.5, spikeOdds:0.0, wingStyle:"straight", hasBooms:false, wingAccentOdds:0.3 },
+    shuttle:     { bodyLen:12, noseLen:3, coreW:5, wingStartFrac:0.60, wingLen:4, wingSpan:3, engineCount:1, engineLen:3, cockpitSize:3, hole:0.06, gunOdds:0.00, finOdds:0.2, spikeOdds:0.1, wingStyle:"none",     hasBooms:false, wingAccentOdds:0.0 },
     // round: coreW+wingSpan is the disc's radius; noseLen+bodyLen is set to
     // ~2x that radius so the circular cross-section (see widthAt) comes out
     // as an actual circle instead of a squashed ellipse. wingStartFrac/
     // wingLen are unused by the round style.
-    saucer:      [14,4, 4, 0.00, 0, 5,  1, 3, 2, 0.08, 0.20, 0.0, 0.3, "round",    false, 0.0],
+    saucer:      { bodyLen:14, noseLen:4, coreW:4, wingStartFrac:0.00, wingLen:0, wingSpan:5, engineCount:1, engineLen:3, cockpitSize:2, hole:0.08, gunOdds:0.20, finOdds:0.0, spikeOdds:0.3, wingStyle:"round",    hasBooms:false, wingAccentOdds:0.0 },
   };
   const PRESET_LABELS = {
     scout:"Scout", interceptor:"Interceptor", fighter:"Fighter", corvette:"Corvette",
@@ -74,9 +76,9 @@
 
   // ---- shape recipe: every random choice, independent of colour or angle ---
   function makeRecipe(presetKey) {
-    const [bodyLen, noseLen, coreW, wingStartFrac, wingLen, wingSpan,
-           engineCount, engineLen, cockpitSize, hole, gunOdds, finOdds,
-           spikeOdds, wingStyle, hasBooms, wingAccentOdds] = PRESETS[presetKey];
+    const { bodyLen, noseLen, coreW, wingStartFrac, wingLen, wingSpan,
+            engineCount, engineLen, cockpitSize, hole, gunOdds, finOdds,
+            spikeOdds, wingStyle, hasBooms, wingAccentOdds } = PRESETS[presetKey];
     const totalLen = noseLen + bodyLen;
     const wingStart = noseLen + Math.round(bodyLen * wingStartFrac);
     const wingEnd = Math.min(totalLen, wingStart + wingLen);
