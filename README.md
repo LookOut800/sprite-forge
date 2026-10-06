@@ -37,6 +37,13 @@ doesn't matter where it's mounted.
 - **Gallery** saves are kept in `localStorage`, scoped to whatever domain the
   page is hosted on — they won't follow you between a local file, a staging
   URL, and your live domain, since each origin gets its own storage.
+- **Open PNG** loads an image into the current frame. Pixel art (64
+  colours or fewer, including your own downloads) comes in as-is and
+  pixel-exact. Anything busier, like a painting or an AI render, is treated
+  as a reference: cropped to the figure, fitted to the grid, and reduced to
+  its own 8 main colours. A background with no transparency is dropped
+  (top-left colour). An opened image has no shape data, so poses, the run
+  cycle and permalinks need a fresh generate.
 - **Download PNG** renders the current grid to an offscreen canvas at 16px
   per pixel and triggers a normal browser download.
 

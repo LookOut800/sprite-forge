@@ -27,6 +27,7 @@
       redo: document.getElementById("redoBtn"),
       flip: document.getElementById("flipBtn"),
       clear: document.getElementById("clearBtn"),
+      importPng: document.getElementById("importBtn"),
     },
     checks: {
       symmetry: document.getElementById("symmetryChk"),
