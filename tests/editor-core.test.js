@@ -77,24 +77,37 @@ test("pixelsFromImage: an upscaled export round-trips exactly", () => {
   const grid = ["#ff0000", null, null, "#00ff00",
                 null, "#281e23", "#281e23", null,
                 "#0000ff", "#ffffff", null, "#123456"];
-  const { pixels, exact } = pixelsFromImage(exportGrid(grid, W, H, 16), W * 16, H * 16, W, H, ["#000000"]);
+  const { pixels, exact } = pixelsFromImage(exportGrid(grid, W, H, 16), W * 16, H * 16, W, H);
   assertOk(exact, "a few flat colours should be kept exactly");
   assertEqual(pixels, grid);
 });
 
-test("pixelsFromImage: a busy image snaps every cell to the palette", () => {
-  // 100 distinct reds/blues — over the exact-colour limit, like a render
-  const img = makeImage(10, 10, (x, y) => (x < 5 ? [200 + y, x, 10, 255] : [x, 10 + y, 220, 255]));
-  const palette = ["#FF0000", "#0000FF", "#00FF00"];
-  const { pixels, exact } = pixelsFromImage(img, 10, 10, 2, 2, palette);
+test("pixelsFromImage: a busy image is cropped to the figure and reduced to a few of its own colours", () => {
+  // 40×40 noisy grey background (over the exact-colour limit, like a render)
+  // with a 10×20 figure in its top-left area: red top half, blue bottom half
+  const img = makeImage(40, 40, (x, y) => {
+    const n = (x * 7 + y * 13) % 30; // 30 shades × 3 areas: well over the exact-colour limit
+    if (x >= 5 && x < 15 && y >= 2 && y < 22) return y < 12 ? [200 + n, 10, 10, 255] : [10, 10, 200 + n, 255];
+    return [180 + n, 180 + n, 180 + n, 255];
+  });
+  const { pixels, exact } = pixelsFromImage(img, 40, 40, 2, 4, 2);
   assertOk(!exact);
-  // fully opaque, so the top-left (reddish) colour is background and drops out
-  assertEqual(pixels, [null, "#0000FF", null, "#0000FF"]);
+  const colors = [...new Set(pixels)];
+  assertEqual(colors.length, 2, `expected 2 colours, got ${colors}`);
+  assertOk(pixels.every(Boolean), "the cropped figure should fill the whole 2×4 grid");
+  assertEqual(pixels[0], pixels[3], "top rows share a colour");
+  assertEqual(pixels[4], pixels[7], "bottom rows share a colour");
+  assertOk(pixels[0] !== pixels[7]);
+});
+
+test("pixelsFromImage: same image in, same colours out", () => {
+  const img = makeImage(30, 30, (x, y) => [(x * 37 + y * 11) % 256, (x * 5 + y * 29) % 256, (x * y) % 256, 255]);
+  assertEqual(pixelsFromImage(img, 30, 30, 6, 6), pixelsFromImage(img, 30, 30, 6, 6));
 });
 
 test("pixelsFromImage: a fully opaque image drops its top-left background colour", () => {
   const img = makeImage(4, 4, (x, y) => (x === 1 && y === 1 ? [9, 9, 9, 255] : [50, 60, 70, 255]));
-  const { pixels } = pixelsFromImage(img, 4, 4, 4, 4, ["#000000"]);
+  const { pixels } = pixelsFromImage(img, 4, 4, 4, 4);
   assertEqual(pixels.filter(Boolean), ["#090909"]);
   assertEqual(pixels[1 * 4 + 1], "#090909");
 });
@@ -102,7 +115,7 @@ test("pixelsFromImage: a fully opaque image drops its top-left background colour
 test("pixelsFromImage: keeps aspect ratio — a square image is centred in a tall grid", () => {
   const img = makeImage(8, 8, () => [255, 0, 0, 255]);
   img[3] = 0; // one see-through pixel, so it isn't treated as fully opaque (no background guess)
-  const { pixels } = pixelsFromImage(img, 8, 8, 4, 8, ["#000000"]);
+  const { pixels } = pixelsFromImage(img, 8, 8, 4, 8);
   // a 4×4 block in rows 2-5; rows 0-1 and 6-7 stay empty
   for (let y = 0; y < 8; y++) {
     const row = pixels.slice(y * 4, y * 4 + 4);
@@ -113,13 +126,13 @@ test("pixelsFromImage: keeps aspect ratio — a square image is centred in a tal
 
 test("pixelsFromImage: an image smaller than the grid is scaled up, not left with gaps", () => {
   const img = makeImage(2, 2, (x) => (x === 0 ? [255, 0, 0, 255] : [0, 0, 0, 0]));
-  const { pixels } = pixelsFromImage(img, 2, 2, 4, 4, ["#000000"]);
+  const { pixels } = pixelsFromImage(img, 2, 2, 4, 4);
   for (let y = 0; y < 4; y++) assertEqual(pixels.slice(y * 4, y * 4 + 4), ["#ff0000", "#ff0000", null, null]);
 });
 
 test("pixelsFromImage: a cell under half opaque stays empty", () => {
   // each 2×2 source block maps to one cell; give the left cell 1 opaque pixel of 4
   const img = makeImage(4, 2, (x, y) => (x === 0 && y === 0 ? [0, 255, 0, 255] : x >= 2 ? [0, 0, 255, 255] : [0, 0, 0, 0]));
-  const { pixels } = pixelsFromImage(img, 4, 2, 2, 1, ["#000000"]);
+  const { pixels } = pixelsFromImage(img, 4, 2, 2, 1);
   assertEqual(pixels, [null, "#0000ff"]);
 });

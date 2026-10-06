@@ -79,20 +79,24 @@
 
   // Turns an image's RGBA bytes into a W×H grid of colour/null cells, so a
   // PNG can be opened in the editor: one of this tool's own exports, any
-  // pixel-art file, or a painted/AI-generated reference to trace over. The
-  // image is fitted inside the grid keeping its aspect ratio and centred;
-  // each cell takes the most common colour among the source pixels it
-  // covers (a vote, not an average, so an upscaled sprite comes back
-  // exactly). An image with few distinct colours is already pixel art and
-  // keeps them; anything busier (a painting, a render) snaps every pixel to
-  // `palette` before voting. A cell is empty unless over half its pixels
-  // are opaque; a fully opaque image has no alpha to go on, so its top-left
-  // colour is taken as the background and dropped.
+  // pixel-art file, or a painted/AI-generated reference to trace over. Each
+  // cell takes the most common colour among the source pixels it covers (a
+  // vote, not an average, so hard pixel edges survive). A cell is empty
+  // unless over half its pixels are opaque; a fully opaque image has no
+  // alpha to go on, so its top-left colour is taken as the background.
+  //  - Few distinct colours: already pixel art. Colours and framing are
+  //    kept as-is, so a Download PNG export comes back exactly.
+  //  - More: a reference (painting, render). It's cropped to the figure and
+  //    reduced to its own `maxColors` most representative colours before
+  //    voting. Snapping to the editor's 5-colour sets instead crushed any
+  //    figure those sets didn't happen to cover into a dark blob.
   const MAX_EXACT_COLORS = 64;
-  function pixelsFromImage(rgba, imgW, imgH, W, H, palette) {
-    const hex = (r, g, b) => "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
-    const rgbOf = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
-    const at = (px, py) => (py * imgW + px) * 4;
+  function pixelsFromImage(rgba, imgW, imgH, W, H, maxColors = 8) {
+    const hex = (r, g, b) => "#" + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+    const rgbAt = (i) => [rgba[i], rgba[i + 1], rgba[i + 2]];
+    // weighted RGB distance — cheap, and closer to how the eye judges
+    // "nearest" than plain Euclidean (green differences read strongest)
+    const dist = (a, b) => 2 * (a[0] - b[0]) ** 2 + 4 * (a[1] - b[1]) ** 2 + 3 * (a[2] - b[2]) ** 2;
 
     let fullyOpaque = true;
     const distinct = new Set();
@@ -101,28 +105,74 @@
       if (rgba[i + 3] >= 128 && distinct.size <= MAX_EXACT_COLORS) distinct.add((rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2]);
     }
     const exact = distinct.size <= MAX_EXACT_COLORS;
-    const pal = palette.map(c => ({ c, rgb: rgbOf(c) }));
-    // weighted RGB distance — cheap, and closer to how the eye judges
-    // "nearest" than plain Euclidean (green differences read strongest)
-    const dist = (a, b) => 2 * (a[0] - b[0]) ** 2 + 4 * (a[1] - b[1]) ** 2 + 3 * (a[2] - b[2]) ** 2;
-    const bg = fullyOpaque ? [rgba[0], rgba[1], rgba[2]] : null;
+    const bg = fullyOpaque ? rgbAt(0) : null;
     const BG_TOLERANCE = exact ? 0 : 9 * 40 * 40; // renders have soft, noisy backgrounds
+    const isFg = (i) => rgba[i + 3] >= 128 && !(bg && dist(rgbAt(i), bg) <= BG_TOLERANCE);
 
-    function colorAt(px, py) {
-      const i = at(px, py);
-      if (rgba[i + 3] < 128) return null;
-      const rgb = [rgba[i], rgba[i + 1], rgba[i + 2]];
-      if (bg && dist(rgb, bg) <= BG_TOLERANCE) return null;
-      if (exact) return hex(rgb[0], rgb[1], rgb[2]);
-      let best = pal[0], bestD = Infinity;
-      for (const p of pal) { const d = dist(rgb, p.rgb); if (d < bestD) { bestD = d; best = p; } }
-      return best.c;
+    // Region to fit: the whole image, or for a reference the box around the
+    // figure — rows/columns with at least 1% foreground, so stray specks of
+    // background noise don't stretch the box back out to the edges.
+    let rx0 = 0, ry0 = 0, rx1 = imgW - 1, ry1 = imgH - 1;
+    let centres = null;
+    if (!exact) {
+      const colFg = new Array(imgW).fill(0), rowFg = new Array(imgH).fill(0);
+      for (let py = 0; py < imgH; py++) for (let px = 0; px < imgW; px++) {
+        if (isFg((py * imgW + px) * 4)) { colFg[px]++; rowFg[py]++; }
+      }
+      const minCol = Math.max(1, imgH * 0.01), minRow = Math.max(1, imgW * 0.01);
+      rx0 = colFg.findIndex(n => n >= minCol); rx1 = imgW - 1 - [...colFg].reverse().findIndex(n => n >= minCol);
+      ry0 = rowFg.findIndex(n => n >= minRow); ry1 = imgH - 1 - [...rowFg].reverse().findIndex(n => n >= minRow);
+      if (rx0 < 0 || ry0 < 0) return { pixels: new Array(W * H).fill(null), exact };
+      centres = quantize(maxColors);
     }
 
-    const s = Math.min(W / imgW, H / imgH); // grid cells per source pixel
-    const ox = (W - imgW * s) / 2, oy = (H - imgH * s) / 2;
-    // source pixels whose centres fall in [c0, c1) along one axis, or the
-    // single nearest pixel when the image is smaller than the grid
+    // k-means over (a sample of) the foreground pixels. Seeded by farthest-
+    // point picks rather than at random, so the same image always gives the
+    // same colours.
+    function quantize(k) {
+      const samples = [];
+      const step = Math.max(1, Math.floor(Math.sqrt(((rx1 - rx0 + 1) * (ry1 - ry0 + 1)) / 20000)));
+      for (let py = ry0; py <= ry1; py += step) for (let px = rx0; px <= rx1; px += step) {
+        const i = (py * imgW + px) * 4;
+        if (isFg(i)) samples.push(rgbAt(i));
+      }
+      const c = [samples[0]];
+      const nearestD = samples.map(sm => dist(sm, c[0]));
+      while (c.length < k) {
+        let far = 0;
+        for (let j = 1; j < samples.length; j++) if (nearestD[j] > nearestD[far]) far = j;
+        if (nearestD[far] === 0) break; // fewer than k distinct colours
+        c.push(samples[far]);
+        samples.forEach((sm, j) => { nearestD[j] = Math.min(nearestD[j], dist(sm, samples[far])); });
+      }
+      let centres = c.map(v => v.slice());
+      for (let iter = 0; iter < 8; iter++) {
+        const sums = centres.map(() => [0, 0, 0, 0]);
+        for (const sm of samples) {
+          const s = sums[nearestIndex(centres, sm)];
+          s[0] += sm[0]; s[1] += sm[1]; s[2] += sm[2]; s[3]++;
+        }
+        centres = sums.filter(s => s[3]).map(s => [s[0] / s[3], s[1] / s[3], s[2] / s[3]]);
+      }
+      return centres.map(v => ({ rgb: v, c: hex(v[0], v[1], v[2]) }));
+    }
+    function nearestIndex(list, rgb) {
+      let best = 0, bestD = Infinity;
+      list.forEach((v, j) => { const d = dist(rgb, v.rgb || v); if (d < bestD) { bestD = d; best = j; } });
+      return best;
+    }
+    function colorAt(px, py) {
+      const i = (py * imgW + px) * 4;
+      if (!isFg(i)) return null;
+      return exact ? hex(rgba[i], rgba[i + 1], rgba[i + 2]) : centres[nearestIndex(centres, rgbAt(i))].c;
+    }
+
+    const rw = rx1 - rx0 + 1, rh = ry1 - ry0 + 1;
+    const s = Math.min(W / rw, H / rh); // grid cells per source pixel
+    const ox = (W - rw * s) / 2, oy = (H - rh * s) / 2;
+    // source pixels (relative to the region) whose centres fall in [c0, c1)
+    // along one axis, or the single nearest one when the image is smaller
+    // than the grid
     function span(c0, c1, o, size) {
       let lo = Math.ceil((c0 - o) / s - 0.5), hi = Math.ceil((c1 - o) / s - 0.5) - 1;
       if (hi < lo) lo = hi = Math.floor(((c0 + c1) / 2 - o) / s);
@@ -130,13 +180,13 @@
     }
     const grid = new Array(W * H).fill(null);
     for (let cy = 0; cy < H; cy++) for (let cx = 0; cx < W; cx++) {
-      const [x0, x1] = span(cx, cx + 1, ox, imgW), [y0, y1] = span(cy, cy + 1, oy, imgH);
+      const [x0, x1] = span(cx, cx + 1, ox, rw), [y0, y1] = span(cy, cy + 1, oy, rh);
       if (x1 < x0 || y1 < y0) continue; // cell lies outside the fitted image
       const votes = new Map();
       let filled = 0, total = 0, winner = null, top = 0;
       for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
         total++;
-        const c = colorAt(px, py);
+        const c = colorAt(rx0 + px, ry0 + py);
         if (c === null) continue;
         filled++;
         const n = (votes.get(c) || 0) + 1;
@@ -240,22 +290,38 @@
       }
     }
 
+    // Undo steps carry the shape data (recipe, colours, preset, seed) along
+    // with the pixels, so undoing a Clear, an Open PNG or a generate also
+    // brings back what poses and the permalink are built from.
+    function snapshot() {
+      return { pixels: state.pixels.slice(), recipe: state.lastRecipe, colors: state.lastColors,
+               preset: state.lastPreset, seed: state.lastSeed };
+    }
+    function restore(snap) {
+      state.pixels = snap.pixels;
+      state.lastRecipe = snap.recipe;
+      state.lastColors = snap.colors;
+      state.lastPreset = snap.preset;
+      state.lastSeed = snap.seed;
+      showSeed();
+      if (state.lastRecipe) updatePermalink();
+      else history.replaceState(null, "", location.pathname + location.search);
+      render();
+    }
     function pushUndo() {
-      state.undoStack.push(state.pixels.slice());
+      state.undoStack.push(snapshot());
       if (state.undoStack.length > 40) state.undoStack.shift();
       state.redoStack.length = 0;
     }
     function undo() {
       if (!state.undoStack.length) return;
-      state.redoStack.push(state.pixels.slice());
-      state.pixels = state.undoStack.pop();
-      render();
+      state.redoStack.push(snapshot());
+      restore(state.undoStack.pop());
     }
     function redo() {
       if (!state.redoStack.length) return;
-      state.undoStack.push(state.pixels.slice());
-      state.pixels = state.redoStack.pop();
-      render();
+      state.undoStack.push(snapshot());
+      restore(state.redoStack.pop());
     }
     function flipHorizontal() {
       pushUndo();
@@ -722,9 +788,7 @@
           const octx = off.getContext("2d");
           octx.drawImage(img, 0, 0);
           const { data } = octx.getImageData(0, 0, off.width, off.height);
-          const theme = paletteSel.value;
-          const palette = [...(palettes[theme] || palettes[firstPaletteKey]), DARK, WHITE];
-          const { pixels, exact } = pixelsFromImage(data, off.width, off.height, W, H, palette);
+          const { pixels, exact } = pixelsFromImage(data, off.width, off.height, W, H);
           pushUndo();
           state.pixels = pixels;
           state.lastRecipe = null;
@@ -734,7 +798,7 @@
           showSeed();
           history.replaceState(null, "", location.pathname + location.search);
           render();
-          showToast(exact ? `Opened ${file.name}.` : `Opened ${file.name}, snapped to the current palette.`);
+          showToast(exact ? `Opened ${file.name}.` : `Opened ${file.name} as a reference — cropped to the figure, 8 colours.`);
         };
         img.onerror = () => { URL.revokeObjectURL(url); showToast("Couldn't read that image."); };
         img.src = url;
