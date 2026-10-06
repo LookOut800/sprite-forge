@@ -77,6 +77,77 @@
     }
   }
 
+  // Turns an image's RGBA bytes into a W×H grid of colour/null cells, so a
+  // PNG can be opened in the editor: one of this tool's own exports, any
+  // pixel-art file, or a painted/AI-generated reference to trace over. The
+  // image is fitted inside the grid keeping its aspect ratio and centred;
+  // each cell takes the most common colour among the source pixels it
+  // covers (a vote, not an average, so an upscaled sprite comes back
+  // exactly). An image with few distinct colours is already pixel art and
+  // keeps them; anything busier (a painting, a render) snaps every pixel to
+  // `palette` before voting. A cell is empty unless over half its pixels
+  // are opaque; a fully opaque image has no alpha to go on, so its top-left
+  // colour is taken as the background and dropped.
+  const MAX_EXACT_COLORS = 64;
+  function pixelsFromImage(rgba, imgW, imgH, W, H, palette) {
+    const hex = (r, g, b) => "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
+    const rgbOf = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    const at = (px, py) => (py * imgW + px) * 4;
+
+    let fullyOpaque = true;
+    const distinct = new Set();
+    for (let i = 0; i < imgW * imgH * 4; i += 4) {
+      if (rgba[i + 3] < 255) fullyOpaque = false;
+      if (rgba[i + 3] >= 128 && distinct.size <= MAX_EXACT_COLORS) distinct.add((rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2]);
+    }
+    const exact = distinct.size <= MAX_EXACT_COLORS;
+    const pal = palette.map(c => ({ c, rgb: rgbOf(c) }));
+    // weighted RGB distance — cheap, and closer to how the eye judges
+    // "nearest" than plain Euclidean (green differences read strongest)
+    const dist = (a, b) => 2 * (a[0] - b[0]) ** 2 + 4 * (a[1] - b[1]) ** 2 + 3 * (a[2] - b[2]) ** 2;
+    const bg = fullyOpaque ? [rgba[0], rgba[1], rgba[2]] : null;
+    const BG_TOLERANCE = exact ? 0 : 9 * 40 * 40; // renders have soft, noisy backgrounds
+
+    function colorAt(px, py) {
+      const i = at(px, py);
+      if (rgba[i + 3] < 128) return null;
+      const rgb = [rgba[i], rgba[i + 1], rgba[i + 2]];
+      if (bg && dist(rgb, bg) <= BG_TOLERANCE) return null;
+      if (exact) return hex(rgb[0], rgb[1], rgb[2]);
+      let best = pal[0], bestD = Infinity;
+      for (const p of pal) { const d = dist(rgb, p.rgb); if (d < bestD) { bestD = d; best = p; } }
+      return best.c;
+    }
+
+    const s = Math.min(W / imgW, H / imgH); // grid cells per source pixel
+    const ox = (W - imgW * s) / 2, oy = (H - imgH * s) / 2;
+    // source pixels whose centres fall in [c0, c1) along one axis, or the
+    // single nearest pixel when the image is smaller than the grid
+    function span(c0, c1, o, size) {
+      let lo = Math.ceil((c0 - o) / s - 0.5), hi = Math.ceil((c1 - o) / s - 0.5) - 1;
+      if (hi < lo) lo = hi = Math.floor(((c0 + c1) / 2 - o) / s);
+      return [Math.max(lo, 0), Math.min(hi, size - 1)];
+    }
+    const grid = new Array(W * H).fill(null);
+    for (let cy = 0; cy < H; cy++) for (let cx = 0; cx < W; cx++) {
+      const [x0, x1] = span(cx, cx + 1, ox, imgW), [y0, y1] = span(cy, cy + 1, oy, imgH);
+      if (x1 < x0 || y1 < y0) continue; // cell lies outside the fitted image
+      const votes = new Map();
+      let filled = 0, total = 0, winner = null, top = 0;
+      for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+        total++;
+        const c = colorAt(px, py);
+        if (c === null) continue;
+        filled++;
+        const n = (votes.get(c) || 0) + 1;
+        votes.set(c, n);
+        if (n > top) { top = n; winner = c; }
+      }
+      if (filled * 2 > total) grid[cy * W + cx] = winner;
+    }
+    return { pixels: grid, exact };
+  }
+
   function downloadCanvas(canvas, filename) {
     canvas.toBlob((blob) => {
       if (!blob) return;
@@ -93,7 +164,7 @@
 
   // config: { W, H, canvas, toastEl, swatchesEl, galleryStripEl, presetSel,
   //   paletteSel, buttons:{generate,reshape,recolor,save,sheet,download,
-  //   undo,redo,flip,clear}, checks:{symmetry,grid}, zoomRangeEl,
+  //   undo,redo,flip,clear,importPng}, checks:{symmetry,grid}, zoomRangeEl,
   //   palettes:{key:[colors]}, defaultPaletteKey, presetLabels:{key:label},
   //   defaultPresetKey, makeRecipe(key), buildGrid(recipe,colors),
   //   galleryKey, defaultCellPx, exportCell, filenamePrefix }
@@ -629,6 +700,47 @@
       showToast(`Exported ${state.gallery.length} sprite${state.gallery.length === 1 ? "" : "s"} as one sheet.`);
     });
 
+    // Open a PNG into the active frame (see pixelsFromImage). The result is
+    // hand-drawn pixels with no recipe behind it, so it's treated like a
+    // Clear-then-paint: undoable, and anything recipe-driven (poses, side
+    // view, permalink) no longer applies until the next generate.
+    if (buttons.importPng) {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/*";
+      buttons.importPng.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files && fileInput.files[0];
+        fileInput.value = ""; // so picking the same file again still fires
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const off = document.createElement("canvas");
+          off.width = img.naturalWidth; off.height = img.naturalHeight;
+          const octx = off.getContext("2d");
+          octx.drawImage(img, 0, 0);
+          const { data } = octx.getImageData(0, 0, off.width, off.height);
+          const theme = paletteSel.value;
+          const palette = [...(palettes[theme] || palettes[firstPaletteKey]), DARK, WHITE];
+          const { pixels, exact } = pixelsFromImage(data, off.width, off.height, W, H, palette);
+          pushUndo();
+          state.pixels = pixels;
+          state.lastRecipe = null;
+          state.lastColors = null;
+          state.lastPreset = null;
+          state.lastSeed = null;
+          showSeed();
+          history.replaceState(null, "", location.pathname + location.search);
+          render();
+          showToast(exact ? `Opened ${file.name}.` : `Opened ${file.name}, snapped to the current palette.`);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); showToast("Couldn't read that image."); };
+        img.src = url;
+      });
+    }
+
     if (buttons.download) buttons.download.addEventListener("click", () => {
       const off = document.createElement("canvas");
       off.width = W * exportCell; off.height = H * exportCell;
@@ -681,5 +793,6 @@
   window.SpriteTool.withSeededRandom = withSeededRandom;
   window.SpriteTool.outlinePass = outlinePass;
   window.SpriteTool.downloadCanvas = downloadCanvas;
+  window.SpriteTool.pixelsFromImage = pixelsFromImage;
   window.SpriteTool.createEditor = createEditor;
 })();
