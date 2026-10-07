@@ -1,9 +1,9 @@
-// Home page previews: a live caped hero running its cycle, a ship and a
-// tiled cave that re-roll every few seconds, drawn with the same generators the tools use,
+// Home page previews: a live caped hero running its cycle, and a ship, a
+// prop and a tiled cave that re-roll every few seconds, drawn with the same generators the tools use,
 // so the cards always show what the tools actually make today.
 (() => {
   "use strict";
-  const { withSeededRandom, hero, ship, tiles } = window.SpriteTool;
+  const { withSeededRandom, hero, ship, tiles, props } = window.SpriteTool;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function draw(canvas, grid, W) {
@@ -44,6 +44,15 @@
   }
   rollShip();
   if (!reducedMotion) setInterval(rollShip, 2500);
+
+  // props: a different item every 1.5 s
+  const propsCanvas = document.getElementById("propsPreview"), kinds = Object.keys(props.PRESET_LABELS);
+  function rollProp() {
+    const recipe = withSeededRandom(Math.floor(Math.random() * 1e9), () => props.makeRecipe(pick(kinds)));
+    draw(propsCanvas, props.buildGrid(recipe, props.PALETTES[pick(Object.keys(props.PALETTES))]), props.W);
+  }
+  rollProp();
+  if (!reducedMotion) setInterval(rollProp, 1500);
 
   // tiles: a little cave in a new material every 3 s
   const tilesCanvas = document.getElementById("tilesPreview"), materials = Object.keys(tiles.MATERIALS);

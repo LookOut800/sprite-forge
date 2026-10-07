@@ -12,6 +12,7 @@ Every page shares the nav at the top; each is a separate HTML file.
 - `index.html` — **Home**: a card per tool with live previews (`home.js`)
 - `hero.html` — **Hero**: hero generator + pixel editor + game export (`app.js`, `hero-shapes.js`, `anim-export.js`)
 - `ships.html` — **Ships**: ship generator + editor (`ships.js`, `ship-shapes.js`)
+- `props.html` — **Props**: weapons, potions, chests, keys, gems… as 24×24 item icons, 12 variations at a time, editable (`props.js`, `prop-shapes.js`)
 - `tiles.html` — **Tiles**: seamless terrain tilesets, 47 joins, Godot / Tiled export (`tiles.js`, `tile-shapes.js`)
 - `snap.html` — **Snap to Style**: AI renders in, game sprites out (`snap.js`, `snap-core.js`)
 

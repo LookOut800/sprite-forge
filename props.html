@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sprite Forge — Ship Editor</title>
-<meta name="description" content="Generate a pixel-art spaceship and edit it by hand with a pencil, fill bucket, mirror painting and undo. Runs entirely in your browser.">
+<title>Sprite Forge — Props &amp; Items</title>
+<meta name="description" content="Generate pixel-art weapons, potions, chests, keys, gems and other item icons, then edit them by hand. Runs entirely in your browser.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -14,16 +14,16 @@
   <nav class="appnav" aria-label="Tools">
     <a class="appnav-brand" href="index.html">SPRITE FORGE</a>
     <a href="hero.html">Hero</a>
-    <a href="ships.html" aria-current="page">Ships</a>
-    <a href="props.html">Props</a>
+    <a href="ships.html">Ships</a>
+    <a href="props.html" aria-current="page">Props</a>
     <a href="tiles.html">Tiles</a>
     <a href="snap.html">Snap to Style</a>
   </nav>
   <header class="top">
     <div class="brand">
-      <span class="tag">pixel ship editor</span>
-      <h1>SPRITE FORGE — SHIPS</h1>
-      <p>Roll a random hull, then paint over it by hand — pencil, fill, mirror and undo.</p>
+      <span class="tag">items &amp; icons</span>
+      <h1>PROPS</h1>
+      <p>Weapons, potions, chests, keys, gems: pick a kind, choose from 12 variations, then paint over it by hand.</p>
     </div>
     <button id="downloadBtn">⭳ Download PNG</button>
   </header>
@@ -31,10 +31,10 @@
   <div class="grid">
     <div>
       <div class="panel">
-        <span class="eyebrow">Canvas — top-down (edit)</span>
+        <span class="eyebrow">Canvas</span>
         <div class="stage-scroll">
           <div class="stage">
-            <canvas id="pixels" width="270" height="270"></canvas>
+            <canvas id="pixels" width="288" height="288"></canvas>
           </div>
         </div>
         <div class="toolbar">
@@ -59,46 +59,32 @@
         </div>
         <div class="swatches" id="swatches" aria-label="Colour palette"></div>
       </div>
-
-      <div class="panel">
-        <span class="eyebrow">Side-on view (preview)</span>
-        <p style="margin:0 0 10px; color:var(--muted); font-size:13px;">
-          The same hull, viewed from the side instead of from above. This
-          redraws from the generated recipe whenever you generate, reshape
-          or recolour — hand edits on the top-down canvas don't carry over
-          to it, since it's a different angle on the same ship, not a pose.
-        </p>
-        <div class="stage-scroll">
-          <div class="stage">
-            <canvas id="sideView" width="180" height="180"></canvas>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div>
       <div class="panel">
         <span class="eyebrow">Auto-generate</span>
-        <label class="lbl" for="presetSel">Hull class</label>
+        <label class="lbl" for="presetSel">Kind</label>
         <select id="presetSel"></select>
         <label class="lbl" for="paletteSel">Colour set</label>
         <select id="paletteSel">
-          <option value="c64">C64 — muted terminal</option>
-          <option value="confetti">Confetti — bold primaries</option>
-          <option value="candy">Candy — pastel pop</option>
-          <option value="deepspace">Deep Space — stealth navy</option>
-          <option value="nebula">Nebula — cosmic pink</option>
-          <option value="solarflare">Solar Flare — warm amber</option>
-          <option value="icefield">Ice Field — frozen cyan</option>
-          <option value="toxic">Toxic — alien green</option>
+          <option value="steel">Steel — iron and red</option>
+          <option value="gold">Gold — gilded and blue</option>
+          <option value="bronze">Bronze — old and green</option>
+          <option value="obsidian">Obsidian — dark and violet</option>
+          <option value="elven">Elven — silver and green</option>
+          <option value="ember">Ember — dark iron and fire</option>
+          <option value="frost">Frost — ice</option>
+          <option value="outlaw">Outlaw — Card Crawler style</option>
         </select>
         <div class="palette-preview" id="palettePreview" aria-label="Colours in this set"></div>
         <div class="gen-actions">
           <button class="primary" id="generateBtn">🎲 Generate new</button>
         </div>
+        <span class="lbl">Variations — click one to edit it</span>
+        <div class="variations" id="variations" aria-label="Variations"></div>
         <div class="gen-actions">
-          <button class="secondary" id="recolorBtn">🎨 Recolour</button>
-          <button class="secondary" id="reshapeBtn">🧬 Reshape</button>
+          <button class="secondary" id="moreBtn">🔁 12 more</button>
         </div>
         <div class="seed-row">
           <span class="seed-label">Seed</span>
@@ -110,7 +96,7 @@
       <div class="panel">
         <span class="eyebrow">Gallery</span>
         <div class="gallery-strip" id="galleryStrip">
-          <span class="empty-note">Saved ships appear here.</span>
+          <span class="empty-note">Saved props appear here.</span>
         </div>
         <div class="gen-actions">
           <button class="secondary" id="saveBtn">💾 Save to gallery</button>
@@ -126,7 +112,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="editor-core.js"></script>
-<script src="ship-shapes.js"></script>
-<script src="ships.js"></script>
+<script src="prop-shapes.js"></script>
+<script src="props.js"></script>
 </body>
 </html>

@@ -225,6 +225,9 @@
       palettes, defaultPaletteKey, presetLabels, defaultPresetKey,
       makeRecipe, buildGrid, galleryKey,
       defaultCellPx = 16, exportCell = 16, filenamePrefix = "sprite",
+      // false: hand buildGrid the palette in its listed order — for
+      // generators whose colour slots mean something (a prop's metal vs wood)
+      shuffleColors = true,
     } = config;
 
     const ctx = canvas.getContext("2d");
@@ -536,7 +539,10 @@
     }
     paletteSel.addEventListener("change", renderSwatches);
 
-    function randomColors(themeKey) { return shuffled(palettes[themeKey] || palettes[firstPaletteKey]); }
+    function randomColors(themeKey) {
+      const p = palettes[themeKey] || palettes[firstPaletteKey];
+      return shuffleColors ? shuffled(p) : p.slice();
+    }
     function randomPresetKey() { const keys = Object.keys(presetLabels); return keys[Math.floor(Math.random() * keys.length)]; }
 
     if (presetSel) {

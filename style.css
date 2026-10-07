@@ -143,7 +143,7 @@ input[type=color]{
   background:none; cursor:pointer;
 }
 
-label.lbl{ font-size:13px; color:var(--muted); display:block; margin-bottom:5px; letter-spacing:.5px; }
+label.lbl, span.lbl{ font-size:13px; color:var(--muted); display:block; margin-bottom:5px; letter-spacing:.5px; }
 select{
   width:100%; background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
   border-radius:6px; padding:8px 10px; font-size:15px; margin-bottom:9px;
@@ -323,3 +323,13 @@ textarea{ resize:vertical; }
 .lib-item:hover{ border-color:var(--line); color:var(--ink); }
 .lib-item[aria-pressed="true"]{ border-color:var(--accent); color:var(--accent); }
 .picked{ font-family:'Press Start 2P', monospace; font-size:11px; color:var(--accent); margin-bottom:12px; }
+
+/* ---- props.html ----------------------------------------------------------- */
+.variations{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:9px; }
+.variation{
+  padding:4px; background:var(--panel-2); border:2px solid var(--line-soft); border-radius:6px; cursor:pointer;
+  display:flex; justify-content:center;
+}
+.variation canvas{ width:100%; max-width:72px; height:auto; image-rendering:pixelated; }
+.variation:hover{ border-color:var(--line); }
+.variation[aria-pressed="true"]{ border-color:var(--accent); }
