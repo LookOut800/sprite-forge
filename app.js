@@ -221,6 +221,32 @@
     editor.showToast("Exported run cycle strip.");
   });
 
+  // export for game: every animation on one sheet + Godot SpriteFrames + JSON
+  document.getElementById("gameExportBtn").addEventListener("click", () => {
+    const { anim } = window.SpriteTool;
+    const frames = editor.allFrames();
+    if (!frames.front || !frames.front.some(Boolean)) { editor.showToast("Nothing on the Front frame to export yet."); return; }
+    const anims = anim.heroAnimations(window.SpriteTool.hero, editor.state.lastRecipe, editor.state.lastColors, frames);
+    const packed = anim.packAnimations(anims, W, H);
+    const canvas = document.createElement("canvas");
+    canvas.width = packed.w; canvas.height = packed.h;
+    const ctx = canvas.getContext("2d");
+    packed.grid.forEach((c, i) => { if (c) { ctx.fillStyle = c; ctx.fillRect(i % packed.w, Math.floor(i / packed.w), 1, 1); } });
+    const base = "hero", png = `${base}.png`;
+    downloadCanvas(canvas, png);
+    const save = (text, name, type) => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    save(anim.godotSpriteFrames(anims, packed, png), `${base}.tres`, "text/plain");
+    save(anim.animationsJson(anims, packed, png, W, H), `${base}.json`, "application/json");
+    editor.showToast(editor.state.lastRecipe
+      ? `Exported ${anims.length} animations — keep hero.png next to hero.tres.`
+      : "No shape data (an opened PNG), so only the frames you have were exported.");
+  });
+
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { closePoseModal(); closeRunCycleModal(); }
   });

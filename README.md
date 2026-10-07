@@ -10,12 +10,21 @@ dependencies beyond one Google Fonts link.
 Every page shares the nav at the top; each is a separate HTML file.
 
 - `index.html` — **Home**: a card per tool with live previews (`home.js`)
-- `hero.html` — **Hero**: hero generator + pixel editor (`app.js`, `hero-shapes.js`)
+- `hero.html` — **Hero**: hero generator + pixel editor + game export (`app.js`, `hero-shapes.js`, `anim-export.js`)
 - `ships.html` — **Ships**: ship generator + editor (`ships.js`, `ship-shapes.js`)
 - `tiles.html` — **Tiles**: seamless terrain tilesets, 47 joins, Godot / Tiled export (`tiles.js`, `tile-shapes.js`)
 - `snap.html` — **Snap to Style**: AI renders in, game sprites out (`snap.js`, `snap-core.js`)
 
 Shared: `editor-core.js` (the editor engine), `style.css`.
+
+### Hero → game
+
+**Export for game** writes `hero.png` (a row per animation: idle, run ×8,
+jump, side, back — hand-edited poses used where you made them), `hero.tres`
+(a Godot 4 SpriteFrames: put it on an AnimatedSprite2D; run plays at 12 fps
+and loops) and `hero.json` (the same regions, fps and loop for any engine).
+Moving poses face right; flip for left. Checked by loading the `.tres` in
+Godot 4.7 and reading back the pixels.
 
 ### Tiles
 

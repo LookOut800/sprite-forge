@@ -7,7 +7,7 @@ function loadSpriteTool() {
   const realWindow = global.window, realDocument = global.document;
   global.window = fakeWindow;
   global.document = { createElement: () => ({}) };
-  const files = ["../../editor-core.js", "../../hero-shapes.js", "../../ship-shapes.js", "../../tile-shapes.js"];
+  const files = ["../../editor-core.js", "../../hero-shapes.js", "../../ship-shapes.js", "../../tile-shapes.js", "../../anim-export.js"];
   try {
     for (const f of files) {
       const resolved = require.resolve(f);
