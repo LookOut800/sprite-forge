@@ -305,3 +305,8 @@ textarea{ resize:vertical; }
   height:128px; width:auto; align-self:center; image-rendering:pixelated; margin-bottom:6px;
 }
 .tool-preview.wide{ max-width:100%; object-fit:contain; }
+
+/* ---- tiles.html ----------------------------------------------------------- */
+.pixel-canvas{ display:block; image-rendering:pixelated; }
+.grid > *{ min-width:0; } /* let a wide canvas scroll in its panel, not widen the page */
+.export-note{ margin:4px 0 0; color:var(--muted); font-size:14px; }

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprite Forge — Tileset Generator</title>
+<meta name="description" content="Generate a seamless pixel-art terrain tileset with all 47 edge and corner pieces, held to your palette, and export it ready for Godot 4 or Tiled. Runs in your browser.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="appnav" aria-label="Tools">
+    <a class="appnav-brand" href="index.html">SPRITE FORGE</a>
+    <a href="hero.html">Hero</a>
+    <a href="ships.html">Ships</a>
+    <a href="tiles.html" aria-current="page">Tiles</a>
+    <a href="snap.html">Snap to Style</a>
+  </nav>
+  <header class="top">
+    <div class="brand">
+      <span class="tag">terrain that joins itself</span>
+      <h1>TILESETS</h1>
+      <p>Pick a material and get every edge and corner piece, seamless, ready for
+        the terrain brush in Godot or Tiled.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <span class="eyebrow">Preview map</span>
+        <div class="stage-scroll">
+          <div class="stage"><canvas id="mapCanvas" class="pixel-canvas"></canvas></div>
+        </div>
+        <div class="toolbar">
+          <div class="btn-row">
+            <button class="tbtn" id="newMapBtn">🗺 New map</button>
+          </div>
+          <label class="field">Zoom <input type="range" id="zoomRange" min="1" max="4" value="2"></label>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="eyebrow">Tileset (47 joins + 4 variants)</span>
+        <div class="stage-scroll">
+          <div class="stage"><canvas id="sheetCanvas" class="pixel-canvas"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <span class="eyebrow">Generate</span>
+        <label class="lbl" for="materialSel">Material</label>
+        <select id="materialSel"></select>
+        <label class="lbl" for="sizeSel">Tile size</label>
+        <select id="sizeSel">
+          <option value="16">16 × 16</option>
+          <option value="32">32 × 32</option>
+        </select>
+        <label class="lbl" for="styleSel">Palette</label>
+        <select id="styleSel">
+          <option value="">Material's own colours</option>
+          <option value="card-crawler">Card Crawler style</option>
+        </select>
+        <div class="gen-actions">
+          <button class="primary" id="rerollBtn">🎲 New pattern</button>
+        </div>
+        <div class="seed-row">
+          <span class="seed-label">Seed</span>
+          <span class="seed-value" id="seedDisplay"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="eyebrow">Export</span>
+        <div class="gen-actions">
+          <button class="secondary" id="pngBtn">⭳ PNG</button>
+          <button class="secondary" id="godotBtn">⭳ Godot 4</button>
+        </div>
+        <div class="gen-actions">
+          <button class="secondary" id="tiledBtn">⭳ Tiled</button>
+          <button class="secondary" id="jsonBtn">⭳ JSON</button>
+        </div>
+        <p class="export-note">Godot: keep the PNG and the .tres side by side in your project, then
+          paint with the terrain tool. Tiled: keep the PNG next to the .tsx and use the terrain brush.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="note">Everything runs in your browser.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="editor-core.js"></script>
+<script src="tile-shapes.js"></script>
+<script src="snap-core.js"></script>
+<script src="tiles.js"></script>
+</body>
+</html>

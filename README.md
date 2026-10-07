@@ -1,7 +1,9 @@
 # Sprite Forge
 
-A pixel-art hero generator and editor that runs entirely in the browser —
-no build step, no server, no dependencies beyond one Google Fonts link.
+Pixel-art tools for game makers that run entirely in the browser: hero and
+ship generators with a pixel editor, a tileset generator, and Snap to Style
+for turning AI renders into game sprites. No build step, no server, no
+dependencies beyond one Google Fonts link.
 
 ## Tools (pages)
 
@@ -10,9 +12,25 @@ Every page shares the nav at the top; each is a separate HTML file.
 - `index.html` — **Home**: a card per tool with live previews (`home.js`)
 - `hero.html` — **Hero**: hero generator + pixel editor (`app.js`, `hero-shapes.js`)
 - `ships.html` — **Ships**: ship generator + editor (`ships.js`, `ship-shapes.js`)
+- `tiles.html` — **Tiles**: seamless terrain tilesets, 47 joins, Godot / Tiled export (`tiles.js`, `tile-shapes.js`)
 - `snap.html` — **Snap to Style**: AI renders in, game sprites out (`snap.js`, `snap-core.js`)
 
 Shared: `editor-core.js` (the editor engine), `style.css`.
+
+### Tiles
+
+Six materials (stone, brick, dirt, grass, metal, cave), 16 or 32 px. Each
+tileset is the 47-tile "blob" set — one tile for every way the 8 neighbours
+can be filled, corners counted only when both sides next to them are — plus 4
+plain variants. Every pattern repeats per tile, so any tile meets any other
+without a seam. The preview paints a random cave with it.
+
+Exports: the PNG; a Godot 4 `.tres` TileSet with one terrain set (match
+corners and sides) and every tile's peering bits, so Godot's terrain tool picks
+tiles itself (checked by loading it in Godot 4.7 and comparing its picks with
+ours); a Tiled `.tsx` with a mixed wang set; a JSON index with each tile's
+neighbour mask. Palette: the material's own, or a style preset's via the same
+lock Snap to Style uses.
 
 ### Snap to Style
 
