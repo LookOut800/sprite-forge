@@ -1,8 +1,9 @@
 {
   "name": "sprite-forge",
   "private": true,
-  "description": "A no-build-step, browser-based pixel-art sprite generator (hero + ship editors).",
+  "description": "Pixel-art tools for game makers, in the browser with no build step: hero, ship and prop generators with an editor, a tileset generator, and Snap to Style for AI renders.",
   "scripts": {
-    "test": "node tests/run.js"
+    "test": "node tests/run.js",
+    "smoke": "node tests/browser-smoke.js"
   }
 }
