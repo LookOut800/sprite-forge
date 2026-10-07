@@ -64,7 +64,9 @@
     const frames = editor.allFrames();
     const ids = Object.keys(frames);
     frameTabsEl.innerHTML = "";
-    if (ids.length <= 1) { frameTabsEl.hidden = true; return; }
+    // shown whenever there's more than one pose, or the one you have isn't
+    // Front (a saved single pose) — otherwise there'd be no way back to Front
+    if (ids.length <= 1 && editor.state.activeFrameId === "front") { frameTabsEl.hidden = true; return; }
     frameTabsEl.hidden = false;
     FRAME_ORDER.forEach(([id, label]) => {
       if (!(id in frames)) return;
@@ -95,20 +97,42 @@
     renderFrameTabs();
     editor.showToast("Generated poses — switch tabs above the canvas to edit each one.");
   });
-  // a fresh generate/reshape/recolour invalidates any already-generated
-  // poses (the engine already clears them); just keep the tabs in sync
-  ["generateBtn", "reshapeBtn", "recolorBtn"].forEach(id => {
-    document.getElementById(id).addEventListener("click", renderFrameTabs);
+  // generate / reshape / recolour / undo / gallery loads all change the
+  // frame set; the engine announces every one of them
+  document.getElementById("pixels").addEventListener("editorchange", renderFrameTabs);
+
+  // Dialogs: focus moves into the dialog when it opens, Tab stays inside it,
+  // and focus goes back to the button that opened it on close.
+  let dialogOpener = null;
+  function openDialog(backdrop) {
+    dialogOpener = document.activeElement;
+    backdrop.hidden = false;
+    const first = backdrop.querySelector("button");
+    if (first) first.focus();
+  }
+  function closeDialog(backdrop) {
+    if (backdrop.hidden) return;
+    backdrop.hidden = true;
+    if (dialogOpener && dialogOpener.focus) dialogOpener.focus();
+    dialogOpener = null;
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const open = [...document.querySelectorAll(".modal-backdrop")].find(b => !b.hidden);
+    if (!open) return;
+    const f = [...open.querySelectorAll("button, a[href], input, select")].filter(el => !el.disabled);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    else if (!open.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
   });
-  // gallery loads/deletes can also change the frame set; the gallery's own
-  // items are rebuilt on every click, so listen on the container instead
-  document.getElementById("galleryStrip").addEventListener("click", () => setTimeout(renderFrameTabs, 0));
 
   // merged sheet preview — assembles whatever frames currently exist (with
   // any hand edits) into one labelled strip, reusing the existing modal
   let poseSheetCanvas = null;
   const poseModalBackdrop = document.getElementById("poseModalBackdrop");
-  function closePoseModal() { poseModalBackdrop.hidden = true; }
+  function closePoseModal() { closeDialog(poseModalBackdrop); }
   function buildMergedSheetCanvas() {
     const frames = editor.allFrames();
     const order = FRAME_ORDER.filter(([id]) => id in frames);
@@ -145,7 +169,7 @@
     const mctx = modalCanvas.getContext("2d");
     mctx.imageSmoothingEnabled = false;
     mctx.drawImage(poseSheetCanvas, 0, 0);
-    poseModalBackdrop.hidden = false;
+    openDialog(poseModalBackdrop);
   });
   document.getElementById("poseModalClose").addEventListener("click", closePoseModal);
   document.getElementById("poseModalClose2").addEventListener("click", closePoseModal);
@@ -166,7 +190,7 @@
   const runCycleCanvas = document.getElementById("runCycleCanvas");
   const runCycleCtx = runCycleCanvas.getContext("2d");
   function closeRunCycleModal() {
-    runCycleModalBackdrop.hidden = true;
+    closeDialog(runCycleModalBackdrop);
     clearInterval(runCycleTimer);
     runCycleTimer = null;
   }
@@ -196,7 +220,7 @@
     drawRunCycleFrame();
     clearInterval(runCycleTimer);
     runCycleTimer = setInterval(drawRunCycleFrame, RUN_CYCLE_FPS_MS);
-    runCycleModalBackdrop.hidden = false;
+    openDialog(runCycleModalBackdrop);
   });
   document.getElementById("runCycleModalClose").addEventListener("click", closeRunCycleModal);
   document.getElementById("runCycleModalClose2").addEventListener("click", closeRunCycleModal);
@@ -233,17 +257,13 @@
     const ctx = canvas.getContext("2d");
     packed.grid.forEach((c, i) => { if (c) { ctx.fillStyle = c; ctx.fillRect(i % packed.w, Math.floor(i / packed.w), 1, 1); } });
     const base = "hero", png = `${base}.png`;
-    downloadCanvas(canvas, png);
-    const save = (text, name, type) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    };
-    save(anim.godotSpriteFrames(anims, packed, png), `${base}.tres`, "text/plain");
-    save(anim.animationsJson(anims, packed, png, W, H), `${base}.json`, "application/json");
+    window.SpriteTool.downloadFiles([
+      [canvas, png],
+      [anim.godotSpriteFrames(anims, packed, png), `${base}.tres`],
+      [anim.animationsJson(anims, packed, png, W, H), `${base}.json`],
+    ]);
     editor.showToast(editor.state.lastRecipe
-      ? `Exported ${anims.length} animations — keep hero.png next to hero.tres.`
+      ? `Exported ${anims.length} animations (the 8-frame run is made from Front) — keep hero.png next to hero.tres.`
       : "No shape data (an opened PNG), so only the frames you have were exported.");
   });
 

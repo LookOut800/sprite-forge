@@ -68,16 +68,13 @@
     }
   }
 
-  // Polling rather than hooking every button (generate/reshape/recolor/
-  // gallery-load/clear all change lastRecipe) keeps this file from having to
-  // know every place the shared engine can change that state.
-  let lastSeenRecipe;
-  setInterval(() => {
-    if (editor.state.lastRecipe !== lastSeenRecipe) {
-      lastSeenRecipe = editor.state.lastRecipe;
-      drawSideView();
-    }
-  }, 200);
+  // the engine announces every generate / reshape / recolour / undo /
+  // gallery load; redraw only when the recipe or colours actually changed
+  let lastSeen;
+  document.getElementById("pixels").addEventListener("editorchange", () => {
+    const now = editor.state.lastRecipe && editor.state.lastColors ? [editor.state.lastRecipe, editor.state.lastColors] : null;
+    if (!lastSeen || !now || now[0] !== lastSeen[0] || now[1] !== lastSeen[1]) { lastSeen = now; drawSideView(); }
+  });
 
   editor.boot();
   drawSideView();

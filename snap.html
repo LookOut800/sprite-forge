@@ -30,16 +30,19 @@
     <button id="sheetBtn" disabled>⭳ Sheet + JSON</button>
   </header>
 
+  <div class="banner" id="fatal" role="alert" hidden></div>
+
   <div class="grid">
     <div>
       <div class="panel">
         <span class="eyebrow">Images</span>
         <div class="snap-drop" id="drop">
-          Drop PNG / JPEG files here, or
+          Drop images here (PNG, JPEG, WebP…), or
           <button class="secondary" id="pickBtn">📂 Choose files</button>
-          <input type="file" id="fileInput" accept="image/png,image/jpeg" multiple hidden>
+          <input type="file" id="fileInput" accept="image/*" multiple hidden>
         </div>
         <div class="snap-results" id="results"></div>
+        <div class="gen-actions"><button class="secondary" id="clearBtn" hidden>🗑 Clear all</button></div>
       </div>
     </div>
 
@@ -90,9 +93,18 @@
     <a href="https://github.com/Hugo-Dz/spritefusion-pixel-snapper">Sprite Fusion Pixel Snapper</a> (MIT).</footer>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="snap-core.js"></script>
+<script>
+  // module scripts (snap.js, the WebAssembly snapper) don't run from file://
+  // — say so instead of showing a page whose buttons do nothing
+  if (location.protocol === "file:") {
+    const b = document.getElementById("fatal");
+    b.hidden = false;
+    b.textContent = "Snap to Style has to be served over http(s), not opened as a file. Run `python3 -m http.server` in this folder and open http://localhost:8000/snap.html — or use the hosted site.";
+  }
+</script>
 <script type="module" src="snap.js"></script>
 </body>
 </html>

@@ -52,10 +52,13 @@
   // ---- variations ---------------------------------------------------------------
   const THUMB = 3;
   function renderVariations() {
-    const box = $("variations"), kind = $("presetSel").value, colors = PALETTES[$("paletteSel").value];
+    const box = $("variations"), chosen = $("presetSel").value, colors = PALETTES[$("paletteSel").value];
+    const kinds = Object.keys(PRESET_LABELS);
     box.innerHTML = "";
     for (let i = 0; i < 12; i++) {
       const seed = Math.floor(Math.random() * 1e9);
+      // "🎲 Random" (the editor adds it to Kind): a different kind per tile
+      const kind = chosen in PRESET_LABELS ? chosen : kinds[Math.floor(Math.random() * kinds.length)];
       const grid = buildGrid(withSeededRandom(seed, () => makeRecipe(kind)), colors);
       const b = document.createElement("button");
       b.className = "variation";
@@ -67,6 +70,7 @@
       grid.forEach((col, j) => { if (col) { ctx.fillStyle = col; ctx.fillRect((j % W) * THUMB, Math.floor(j / W) * THUMB, THUMB, THUMB); } });
       b.appendChild(c);
       b.addEventListener("click", () => {
+        if (!(chosen in PRESET_LABELS)) $("presetSel").value = kind; // replay exactly this one
         editor.doGenerate(seed);
         for (const v of box.querySelectorAll(".variation")) v.setAttribute("aria-pressed", String(v === b));
       });

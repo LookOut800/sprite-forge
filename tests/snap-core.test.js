@@ -133,3 +133,17 @@ test("tilePass: any render -> one square tile of the asked size", () => {
   const out = tilePass(noisy(50, 30), { size: 16 });
   assertEqual([out.w, out.h], [16, 16]);
 });
+
+test("tilePass: a cut-out (transparent) texture comes out solid, no holes", () => {
+  const src = noisy(20, 20, 3);
+  for (let i = 0; i < 20 * 20; i += 3) src.data[i * 4 + 3] = 0; // a third of it see-through
+  const out = tilePass(src, { size: 16 });
+  for (let i = 0; i < 16 * 16; i++) assertEqual(out.data[i * 4 + 3], 255, `pixel ${i} is transparent`);
+});
+
+test("tilePass: a fully transparent image is refused, not turned into black", () => {
+  const src = { w: 8, h: 8, data: new Uint8ClampedArray(8 * 8 * 4) };
+  let threw = false;
+  try { tilePass(src, { size: 16 }); } catch (e) { threw = true; }
+  assertOk(threw);
+});

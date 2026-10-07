@@ -4,7 +4,7 @@
 // Style's lock (SnapCore.lockPalette) on the finished sheet.
 (() => {
   "use strict";
-  const { tiles: Tiles, downloadCanvas } = window.SpriteTool;
+  const { tiles: Tiles, downloadCanvas, downloadFiles } = window.SpriteTool;
   const SnapCore = window.SnapCore;
   const $ = (id) => document.getElementById(id);
   const PREFS_KEY = "spriteForge.tiles.v1";
@@ -15,6 +15,7 @@
   function loadCustomMaterials() {
     let list = [];
     try { list = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY) || "[]"); } catch (e) { return; }
+    if (!Array.isArray(list)) return;
     for (const t of list) {
       try {
         const bin = atob(t.rgba), data = new Uint8ClampedArray(bin.length);
@@ -50,6 +51,7 @@
   async function loadPreset(id) {
     if (!id) return null;
     const res = await fetch(`presets/${id}.json`);
+    if (!res.ok) throw new Error(`preset ${id}: ${res.status}`);
     return res.json();
   }
 
@@ -140,6 +142,9 @@
     state.material = key;
     for (const b of document.querySelectorAll(".lib-item")) b.setAttribute("aria-pressed", String(b.dataset.material === key));
     $("pickedName").textContent = Tiles.MATERIALS[key].label;
+    // keep the address in step, so a reload (or a link) opens what you see
+    // rather than the material you arrived from Snap with
+    history.replaceState(null, "", `#material=${encodeURIComponent(key)}`);
     build();
   }
 
@@ -156,13 +161,13 @@
   function exportPng() { downloadCanvas(imgToCanvas(state.tileset.sheet), png()); }
   function exportGodot() {
     const mat = Tiles.MATERIALS[state.material];
-    exportPng();
-    downloadText(Tiles.godotTileSet(state.tileset, png(), mat.label, mat.colors.mid), `${baseName()}.tres`, "text/plain");
-    toast("Saved the PNG and the .tres — keep them in the same folder.");
+    downloadFiles([[imgToCanvas(state.tileset.sheet), png()],
+                   [Tiles.godotTileSet(state.tileset, png(), mat.label, mat.colors.mid), `${baseName()}.tres`]]);
+    toast("Saving the PNG and the .tres — keep them in the same folder.");
   }
   function exportTiled() {
-    exportPng();
-    downloadText(Tiles.tiledTsx(state.tileset, png(), Tiles.MATERIALS[state.material].label), `${baseName()}.tsx`, "application/xml");
+    downloadFiles([[imgToCanvas(state.tileset.sheet), png()],
+                   [new Blob([Tiles.tiledTsx(state.tileset, png(), Tiles.MATERIALS[state.material].label)], { type: "application/xml" }), `${baseName()}.tsx`]]);
   }
   function exportJson() {
     downloadText(Tiles.tilesetJson(state.tileset, png(), state.material), `${baseName()}.json`, "application/json");
@@ -190,11 +195,16 @@
     $("sizeSel").value = String(state.size);
     $("styleSel").value = state.style; $("zoomRange").value = String(state.zoom);
     state.preset = await loadPreset(state.style).catch(() => null);
+    if (state.style && !state.preset) { // remembered a style this page can't load (e.g. opened from disk)
+      state.style = ""; $("styleSel").value = "";
+      toast("Couldn't load the saved palette style — using the material's own colours.");
+    }
 
     $("sizeSel").addEventListener("change", (e) => { state.size = parseInt(e.target.value, 10); build(); });
     $("styleSel").addEventListener("change", async (e) => {
       state.style = e.target.value;
-      try { state.preset = await loadPreset(state.style); } catch (err) { state.preset = null; toast("Couldn't load that style (open the page over http)."); }
+      try { state.preset = await loadPreset(state.style); }
+      catch (err) { state.preset = null; state.style = ""; e.target.value = ""; toast("Couldn't load that style (open the page over http)."); }
       build();
     });
     $("rerollBtn").addEventListener("click", () => { state.seed = newSeed(); build(); });

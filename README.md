@@ -21,7 +21,8 @@ Shared: `editor-core.js` (the editor engine), `style.css`.
 ### Hero → game
 
 **Export for game** writes `hero.png` (a row per animation: idle, run ×8,
-jump, side, back — hand-edited poses used where you made them), `hero.tres`
+jump, side, back — your hand-edited Jump →, Side and Back are used where you
+made them; the 8-frame run is always generated from Front, so edit Front for it), `hero.tres`
 (a Godot 4 SpriteFrames: put it on an AnimatedSprite2D; run plays at 12 fps
 and loops) and `hero.json` (the same regions, fps and loop for any engine).
 Moving poses face right; flip for left. Checked by loading the `.tres` in

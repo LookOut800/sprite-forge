@@ -143,12 +143,12 @@
   <footer class="note">Everything runs in your browser. Gallery saves stay on this device — use Download to keep a copy.</footer>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal-backdrop" id="poseModalBackdrop" hidden>
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="poseModalTitle">
     <div class="modal-head">
-      <span class="eyebrow" style="margin:0;">Pose sheet preview</span>
+      <span class="eyebrow" id="poseModalTitle" style="margin:0;">Pose sheet preview</span>
       <button class="tbtn" id="poseModalClose" aria-label="Close">✕</button>
     </div>
     <div class="pose-preview-wrap">
@@ -162,9 +162,9 @@
 </div>
 
 <div class="modal-backdrop" id="runCycleModalBackdrop" hidden>
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="runCycleModalTitle">
     <div class="modal-head">
-      <span class="eyebrow" style="margin:0;">Run cycle preview</span>
+      <span class="eyebrow" id="runCycleModalTitle" style="margin:0;">Run cycle preview</span>
       <button class="tbtn" id="runCycleModalClose" aria-label="Close">✕</button>
     </div>
     <div class="pose-preview-wrap">

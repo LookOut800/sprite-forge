@@ -198,6 +198,23 @@
     return { pixels: grid, exact };
   }
 
+  // Several files from one click (a PNG plus the engine file that points at
+  // it): one after another with a short gap, PNG first — browsers can drop
+  // downloads fired in the same instant. `files` = [[source, name], ...]
+  // where source is a canvas, a Blob, or text.
+  async function downloadFiles(files, gapMs = 300) {
+    for (const [i, [src, name]] of files.entries()) {
+      if (i) await new Promise((ok) => setTimeout(ok, gapMs));
+      const blob = src instanceof Blob ? src
+        : typeof src === "string" ? new Blob([src], { type: name.endsWith(".json") ? "application/json" : "text/plain" })
+        : await new Promise((ok) => src.toBlob(ok, "image/png"));
+      if (!blob) continue;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+  }
   function downloadCanvas(canvas, filename) {
     canvas.toBlob((blob) => {
       if (!blob) return;
@@ -293,24 +310,35 @@
       }
     }
 
-    // Undo steps carry the shape data (recipe, colours, preset, seed) along
-    // with the pixels, so undoing a Clear, an Open PNG or a generate also
-    // brings back what poses and the permalink are built from.
+    // Undo steps carry the shape data (recipe, colours, preset, palette,
+    // seed) and every pose frame along with the pixels, so undoing a Clear,
+    // an Open PNG, a generate or a gallery load brings ALL of it back — not
+    // just the canvas in front of you.
     function snapshot() {
+      const frames = {};
+      for (const id of Object.keys(state.frames)) frames[id] = state.frames[id].slice();
       return { pixels: state.pixels.slice(), recipe: state.lastRecipe, colors: state.lastColors,
-               preset: state.lastPreset, seed: state.lastSeed };
+               preset: state.lastPreset, palette: state.lastPalette, seed: state.lastSeed,
+               frames, activeFrameId: state.activeFrameId };
     }
     function restore(snap) {
       state.pixels = snap.pixels;
+      state.frames = snap.frames || {};
+      state.activeFrameId = snap.activeFrameId || "front";
       state.lastRecipe = snap.recipe;
       state.lastColors = snap.colors;
       state.lastPreset = snap.preset;
+      state.lastPalette = snap.palette;
       state.lastSeed = snap.seed;
+      framesChanged();
       showSeed();
       if (state.lastRecipe) updatePermalink();
       else history.replaceState(null, "", location.pathname + location.search);
       render();
     }
+    // Pages listen for this on the canvas (hero pose tabs, ships side view)
+    // instead of polling or hooking every button that can change frames.
+    function framesChanged() { canvas.dispatchEvent(new CustomEvent("editorchange")); }
     function pushUndo() {
       state.undoStack.push(snapshot());
       if (state.undoStack.length > 40) state.undoStack.shift();
@@ -355,13 +383,15 @@
       state.undoStack = [];
       state.redoStack = [];
       render();
+      framesChanged();
     }
     // A snapshot of every frame, including the currently active one.
     function allFrames() {
       return { ...state.frames, [state.activeFrameId]: state.pixels.slice() };
     }
-    // Restores a full frame set (e.g. from a saved gallery entry).
-    function loadFrames(frames, activeFrameId) {
+    // Restores a full frame set (e.g. from a saved gallery entry). Callers
+    // pushUndo() first so the load itself can be undone.
+    function loadFrames(frames, activeFrameId, keepHistory = false) {
       state.frames = {};
       for (const id of Object.keys(frames)) {
         if (id === activeFrameId) continue;
@@ -369,9 +399,9 @@
       }
       state.pixels = (frames[activeFrameId] || new Array(W * H).fill(null)).slice();
       state.activeFrameId = activeFrameId;
-      state.undoStack = [];
-      state.redoStack = [];
+      if (!keepHistory) { state.undoStack = []; state.redoStack = []; }
       render();
+      framesChanged();
     }
     // Drops every frame but the active one — used when a fresh
     // generate/reshape/recolour makes any previously-generated poses stale.
@@ -428,7 +458,7 @@
       const cell = cellFromEvent(e);
       if (!cell) return;
       canvas.setPointerCapture(e.pointerId);
-      pushUndo();
+      if (state.tool !== "eyedrop") pushUndo(); // picking a colour isn't an edit (and mustn't clear redo)
       painting = true;
       lastCell = cell;
       applyTool(cell[0], cell[1]);
@@ -561,10 +591,9 @@
       return presetSel.value === "random" ? randomPresetKey() : presetSel.value;
     }
 
-    // Every random draw a generation makes (which preset "random" picks,
-    // the shape recipe's own rolls, the colour shuffle) happens inside one
-    // withSeededRandom() call, so (preset, palette, seed) together fully
-    // determine the result — the same three values always reproduce the
+    // Every random draw a generation makes (the shape recipe's own rolls,
+    // the colour shuffle) happens inside one withSeededRandom() call, so
+    // (preset, palette, seed) together fully determine the result — the same three values always reproduce the
     // same recipe and colours, which is what makes a generation shareable
     // and testable instead of a one-off you can never get back.
     function showSeed() {
@@ -574,7 +603,7 @@
       if (!state.lastRecipe || state.lastSeed == null) return;
       const params = new URLSearchParams();
       params.set("preset", state.lastPreset || "");
-      params.set("palette", paletteSel.value);
+      params.set("palette", state.lastPalette || paletteSel.value); // what it was MADE with
       params.set("seed", String(state.lastSeed));
       history.replaceState(null, "", "#" + params.toString());
     }
@@ -591,12 +620,16 @@
     function doGenerate(explicitSeed) {
       pushUndo();
       const seed = explicitSeed != null ? explicitSeed : randomSeed();
+      // "Random" is resolved before the seeded block: the share link stores
+      // the resolved preset, so the seed must cover only the recipe + colours
+      // or replaying the link would skip a draw and build something else
+      const key = currentPresetKey();
       withSeededRandom(seed, () => {
-        const key = currentPresetKey();
         state.lastPreset = key;
         state.lastRecipe = makeRecipe(key);
         state.lastColors = randomColors(paletteSel.value);
       });
+      state.lastPalette = paletteSel.value;
       state.lastSeed = seed;
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
       state.activeFrameId = "front";
@@ -604,16 +637,17 @@
       render();
       showSeed();
       updatePermalink();
+      framesChanged();
     }
     function doReshape(explicitSeed) {
       if (!state.lastRecipe) return doGenerate(explicitSeed);
       pushUndo();
       const seed = explicitSeed != null ? explicitSeed : randomSeed();
+      const key = currentPresetKey(); // outside the seed, as in doGenerate
       withSeededRandom(seed, () => {
-        const key = currentPresetKey();
         state.lastPreset = key;
         state.lastRecipe = makeRecipe(key);
-        if (!state.lastColors) state.lastColors = randomColors(paletteSel.value);
+        if (!state.lastColors) { state.lastColors = randomColors(paletteSel.value); state.lastPalette = paletteSel.value; }
       });
       state.lastSeed = seed;
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
@@ -622,12 +656,14 @@
       render();
       showSeed();
       updatePermalink();
+      framesChanged();
     }
     function doRecolor(explicitSeed) {
       if (!state.lastRecipe) return doGenerate(explicitSeed);
       pushUndo();
       const seed = explicitSeed != null ? explicitSeed : randomSeed();
       withSeededRandom(seed, () => { state.lastColors = randomColors(paletteSel.value); });
+      state.lastPalette = paletteSel.value;
       state.lastSeed = seed;
       state.pixels = buildGrid(state.lastRecipe, state.lastColors);
       state.activeFrameId = "front";
@@ -635,6 +671,7 @@
       render();
       showSeed();
       updatePermalink();
+      framesChanged();
     }
     if (buttons.generate) buttons.generate.addEventListener("click", () => doGenerate());
     if (buttons.reshape) buttons.reshape.addEventListener("click", () => doReshape());
@@ -662,14 +699,16 @@
       }
       return off.toDataURL("image/png");
     }
+    const GALLERY_MAX = 24;
+    // false if this browser wouldn't store it (private mode, storage full)
     function persistGallery() {
-      try { localStorage.setItem(galleryKey, JSON.stringify(state.gallery.slice(0, 24))); }
-      catch (e) { /* private mode or full — ignore, gallery just won't persist */ }
+      try { localStorage.setItem(galleryKey, JSON.stringify(state.gallery)); return true; }
+      catch (e) { return false; }
     }
     function loadGallery() {
       try {
-        const raw = localStorage.getItem(galleryKey);
-        if (raw) state.gallery = JSON.parse(raw) || [];
+        const parsed = JSON.parse(localStorage.getItem(galleryKey) || "[]");
+        state.gallery = Array.isArray(parsed) ? parsed.filter(g => g && Array.isArray(g.pixels)).slice(0, GALLERY_MAX) : [];
       } catch (e) { state.gallery = []; }
     }
     function renderGallery() {
@@ -682,27 +721,30 @@
         galleryStripEl.appendChild(p);
         return;
       }
-      state.gallery.forEach(entry => {
+      state.gallery.forEach((entry, n) => {
         const wrap = document.createElement("div");
         wrap.className = "gallery-item";
         const b = document.createElement("button");
         b.className = "thumb";
         const img = document.createElement("img");
         img.src = entry.thumb;
-        img.alt = "Saved sprite";
+        img.alt = `Saved sprite ${n + 1}`;
         b.appendChild(img);
         b.addEventListener("click", () => {
           const frames = entry.frames
             ? { ...entry.frames, [entry.activeFrameId || "front"]: entry.pixels }
             : { front: entry.pixels };
-          loadFrames(frames, entry.activeFrameId || "front");
+          pushUndo(); // loading replaces the canvas and every pose: keep it undoable
           state.lastRecipe = entry.recipe || null;
           state.lastColors = entry.colors || null;
           state.lastPreset = entry.preset || null;
+          state.lastPalette = entry.palette || null;
           state.lastSeed = entry.seed != null ? entry.seed : null;
+          loadFrames(frames, entry.activeFrameId || "front", true);
           showSeed();
-          updatePermalink();
-          showToast("Loaded from gallery.");
+          if (state.lastRecipe && state.lastPalette) updatePermalink();
+          else history.replaceState(null, "", location.pathname + location.search);
+          showToast("Loaded from gallery — Undo brings back what you had.");
         });
         const del = document.createElement("button");
         del.className = "del";
@@ -724,26 +766,34 @@
         id: Date.now() + "-" + Math.random().toString(36).slice(2, 7),
         pixels: state.pixels.slice(), thumb: thumbDataURL(frames[thumbFrameId] || state.pixels),
         recipe: state.lastRecipe, colors: state.lastColors,
-        preset: state.lastPreset, seed: state.lastSeed,
+        preset: state.lastPreset, palette: state.lastPalette, seed: state.lastSeed,
         frames, activeFrameId: state.activeFrameId in frames ? state.activeFrameId : thumbFrameId,
       };
       state.gallery.unshift(entry);
-      persistGallery();
+      const dropped = state.gallery.length > GALLERY_MAX;
+      state.gallery = state.gallery.slice(0, GALLERY_MAX);
+      const stored = persistGallery();
       renderGallery();
+      return !stored ? "Saved for now, but this browser won't keep it (private mode or storage full) — download it to keep it."
+        : dropped ? `Saved. The gallery keeps the newest ${GALLERY_MAX}; the oldest was dropped.` : null;
     }
     // saves ONLY the frame you're currently looking at, as its own
     // standalone single-pose entry — independent of any other poses
+    // (the Front frame rides along when it's another pose being saved, since
+    // every other pose and the game export are generated from Front)
     if (buttons.save) buttons.save.addEventListener("click", () => {
-      addGalleryEntry({ [state.activeFrameId]: state.pixels.slice() }, state.activeFrameId);
-      showToast("Saved pose to gallery.");
+      const frames = { [state.activeFrameId]: state.pixels.slice() };
+      if (state.activeFrameId !== "front" && state.frames.front) frames.front = state.frames.front.slice();
+      const warn = addGalleryEntry(frames, state.activeFrameId);
+      showToast(warn || "Saved pose to gallery.");
     });
     // bundles every generated/edited frame into one entry
     if (buttons.saveSheet) buttons.saveSheet.addEventListener("click", () => {
       const frames = allFrames();
       const frameCount = Object.keys(frames).length;
       if (frameCount <= 1) { showToast("Generate poses first to save a full sprite sheet."); return; }
-      addGalleryEntry(frames, "front");
-      showToast(`Saved sprite sheet (${frameCount} frames) to gallery.`);
+      const warn = addGalleryEntry(frames, "front");
+      showToast(warn || `Saved sprite sheet (${frameCount} frames) to gallery.`);
     });
 
     function buildSheetCanvas(entries, cell = 16, gap = 2) {
@@ -789,12 +839,23 @@
         const img = new Image();
         img.onload = () => {
           URL.revokeObjectURL(url);
-          const off = document.createElement("canvas");
-          off.width = img.naturalWidth; off.height = img.naturalHeight;
-          const octx = off.getContext("2d");
-          octx.drawImage(img, 0, 0);
-          const { data } = octx.getImageData(0, 0, off.width, off.height);
-          const { pixels, exact } = pixelsFromImage(data, off.width, off.height, W, H);
+          let pixels, exact;
+          try {
+            if (!img.naturalWidth || !img.naturalHeight) throw new Error("no size");
+            // past ~2048px a canvas can hit browser limits, and the grid is
+            // tiny anyway: read huge images scaled down
+            const k = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight));
+            const off = document.createElement("canvas");
+            off.width = Math.max(1, Math.round(img.naturalWidth * k)); off.height = Math.max(1, Math.round(img.naturalHeight * k));
+            const octx = off.getContext("2d");
+            octx.drawImage(img, 0, 0, off.width, off.height);
+            const { data } = octx.getImageData(0, 0, off.width, off.height);
+            ({ pixels, exact } = pixelsFromImage(data, off.width, off.height, W, H));
+          } catch (err) {
+            showToast("Couldn't read that image.");
+            return;
+          }
+          if (!pixels.some(Boolean)) { showToast("Nothing to open — the image looks like one flat colour."); return; }
           pushUndo();
           state.pixels = pixels;
           state.lastRecipe = null;
@@ -863,6 +924,7 @@
   window.SpriteTool.withSeededRandom = withSeededRandom;
   window.SpriteTool.outlinePass = outlinePass;
   window.SpriteTool.downloadCanvas = downloadCanvas;
+  window.SpriteTool.downloadFiles = downloadFiles;
   window.SpriteTool.pixelsFromImage = pixelsFromImage;
   window.SpriteTool.createEditor = createEditor;
 })();

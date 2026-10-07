@@ -333,3 +333,17 @@ textarea{ resize:vertical; }
 .variation canvas{ width:100%; max-width:72px; height:auto; image-rendering:pixelated; }
 .variation:hover{ border-color:var(--line); }
 .variation[aria-pressed="true"]{ border-color:var(--accent); }
+
+.banner{
+  margin-bottom:16px; padding:12px 14px; border-radius:8px;
+  background:var(--danger); color:var(--danger-ink); font-size:16px;
+}
+.snap-remove{
+  margin-left:auto; align-self:flex-start; background:none; border:1px solid var(--line-soft);
+  color:var(--muted); border-radius:6px; padding:2px 8px; cursor:pointer; font-size:15px;
+}
+.snap-remove:hover{ color:var(--ink); border-color:var(--line); }
+.palette-bad{ width:100%; color:var(--danger); font-size:13px; }
+
+/* keyboard focus is always visible (mouse clicks don't show it) */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }

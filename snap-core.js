@@ -189,11 +189,32 @@
     }
     return { w: n, h: n, data };
   }
+  // A texture has no holes: transparent pixels (a cut-out render, a PNG with
+  // alpha) take the image's most common opaque colour, so a tile never
+  // carries see-through or black spots into a tileset. All-transparent input
+  // has nothing to tile.
+  function flattenAlpha(img) {
+    const counts = new Map();
+    for (let i = 0; i < img.w * img.h; i++) {
+      if (img.data[i * 4 + 3] < 128) continue;
+      const k = (img.data[i * 4] << 16) | (img.data[i * 4 + 1] << 8) | img.data[i * 4 + 2];
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    if (!counts.size) throw new Error("the image is fully transparent");
+    const top = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+    const data = img.data.slice();
+    for (let i = 0; i < img.w * img.h; i++) {
+      if (data[i * 4 + 3] >= 128) { data[i * 4 + 3] = 255; continue; }
+      data[i * 4] = top >> 16; data[i * 4 + 1] = (top >> 8) & 255; data[i * 4 + 2] = top & 255; data[i * 4 + 3] = 255;
+    }
+    return { w: img.w, h: img.h, data };
+  }
   // A snapped render -> one seamless size x size tile, optionally on a
   // palette (no accents: a texture has no "one neon" rule).
-  function tilePass(img, { size = 16, palette = [] } = {}) {
-    let out = makeSeamless(fitSize(cropSquare(img), size, size));
-    if (palette.length) out = lockPalette(out, palette, { steps: 1 });
+  function tilePass(img, { size = 16, palette = [], rampSteps = 1 } = {}) {
+    let out = flattenAlpha(fitSize(cropSquare(flattenAlpha(img)), size, size));
+    out = makeSeamless(out);
+    if (palette.length) out = lockPalette(out, palette, { steps: rampSteps ?? 1 });
     return out;
   }
 
@@ -296,7 +317,7 @@
 
   const api = {
     rgbToOklab, oklabToRgb, hexToRgb, rgbToHex,
-    removeBackground, cropToContent, fitSize, fitHeight, cropSquare, makeSeamless, tilePass,
+    removeBackground, cropToContent, fitSize, fitHeight, cropSquare, flattenAlpha, makeSeamless, tilePass,
     buildRamps, lockPalette, stylePass, packSheet,
   };
   if (typeof window !== "undefined") window.SnapCore = api;

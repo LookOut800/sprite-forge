@@ -76,13 +76,52 @@ function serve() {
     await p.click("#genPosesBtn");
     check((await p.$$("#frameTabs button")).length >= 6, "hero: pose tabs missing");
     await p.click("#gameExportBtn");
-    await p.waitForTimeout(500);
+    await p.waitForTimeout(1500); // the three files arrive one after another
     for (const f of ["hero.png", "hero.tres", "hero.json"]) check(downloads.includes(f), `hero: export missing ${f}`);
+  });
+
+  // audit regressions: undo must bring back poses; gallery loads are undoable
+  await page("hero: undo keeps poses, gallery load is undoable", async (p) => {
+    await p.goto(`${base}/hero.html#preset=scout&palette=nebula&seed=11`);
+    await p.click("#genPosesBtn");
+    await p.click("#generateBtn");
+    await p.keyboard.press("Control+z");
+    await p.waitForTimeout(100);
+    check((await p.$$("#frameTabs button")).length >= 6, "hero: undo after Generate lost the poses");
+    check((await p.textContent("#seedDisplay")).trim() === "11", "hero: undo after Generate didn't restore the seed");
+    await p.click("#saveBtn");
+    await p.click("#generateBtn");
+    const seedBefore = (await p.textContent("#seedDisplay")).trim();
+    await p.click("#galleryStrip .thumb");
+    await p.keyboard.press("Control+z");
+    await p.waitForTimeout(100);
+    check((await p.textContent("#seedDisplay")).trim() === seedBefore, "hero: a gallery load couldn't be undone");
+  });
+
+  await page("hero: a Random-preset share link reproduces the sprite", async (p) => {
+    await p.goto(`${base}/hero.html`);
+    await p.selectOption("#presetSel", "random");
+    await p.selectOption("#paletteSel", "toxic");
+    await p.click("#generateBtn");
+    await p.waitForTimeout(100);
+    const url = p.url(), pixels = await p.$eval("#pixels", c => c.toDataURL());
+    await p.selectOption("#paletteSel", "candy"); // changing the select afterwards mustn't change the link
+    const p2 = await p.context().newPage();
+    await p2.goto(url);
+    await p2.waitForTimeout(300);
+    check(await p2.$eval("#pixels", c => c.toDataURL()) === pixels, "hero: share link built a different sprite");
   });
 
   await page("ships", async (p) => {
     await p.goto(`${base}/ships.html`);
     await p.click("#generateBtn");
+  });
+
+  await page("props: Random kind", async (p) => {
+    await p.goto(`${base}/props.html`);
+    await p.selectOption("#presetSel", "random");
+    check((await p.$$(".variation")).length === 12, "props: Random kind gave no variations");
+    await p.click("#moreBtn");
   });
 
   await page("props", async (p) => {
@@ -110,12 +149,20 @@ function serve() {
     await p.reload();
     await p.selectOption("#presetSel", "card-crawler");
     await p.waitForTimeout(300);
-    await p.setInputFiles("#fileInput", [path.join(__dirname, "fixtures/render-goblin.png")]);
-    await until(p, () => document.querySelectorAll(".snap-row button").length === 1);
-    check((await p.textContent(".snap-row")).includes("styled") && (await p.textContent(".snap-row")).includes("×64"), "snap: styled sprite isn't 64px tall");
-    await p.click("#sheetBtn");
-    await p.waitForTimeout(800);
-    check(downloads.includes("sheet.png") && downloads.includes("sheet.json"), "snap: sheet export missing files");
+    // the same file twice: two sprites, and the sheet must keep both
+    const goblin = path.join(__dirname, "fixtures/render-goblin.png");
+    await p.setInputFiles("#fileInput", [goblin]);
+    await p.setInputFiles("#fileInput", [goblin]);
+    await until(p, () => [...document.querySelectorAll(".snap-row figcaption")].filter(f => f.textContent.startsWith("styled")).length === 2);
+    check((await p.textContent(".snap-row")).includes("×64"), "snap: styled sprite isn't 64px tall");
+    const [json] = await Promise.all([p.waitForEvent("download", { predicate: d => d.suggestedFilename() === "sheet.json" }), p.click("#sheetBtn")]);
+    const frames = JSON.parse(fs.readFileSync(await json.path(), "utf8")).frames;
+    check(Object.keys(frames).length === 2, `snap: sheet.json lists ${Object.keys(frames).length} frames for 2 sprites`);
+    check(downloads.includes("sheet.png"), "snap: sheet export missing sheet.png");
+    await p.click(".snap-remove");
+    check((await p.$$(".snap-row")).length === 1, "snap: remove didn't remove the row");
+    await p.click("#clearBtn");
+    check((await p.$$(".snap-row")).length === 0, "snap: Clear all left rows");
   });
 
   await page("snap: texture tile -> tileset", async (p) => {

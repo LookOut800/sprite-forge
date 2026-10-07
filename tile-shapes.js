@@ -539,6 +539,10 @@
   const SIDES = [[N, "top_side"], [NE, "top_right_corner"], [E, "right_side"], [SE, "bottom_right_corner"],
                  [S, "bottom_side"], [SW, "bottom_left_corner"], [W, "left_side"], [NW, "top_left_corner"]];
 
+  // a value inside "..." in a Godot text resource (a custom material's name
+  // comes from a file name, which can hold quotes or backslashes)
+  const gdString = (v) => String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]+/g, " ");
+
   // Godot 4 TileSet: one atlas, one terrain set in "match corners and
   // sides" mode, every tile tagged with the neighbours it joins. Paint with
   // the terrain tool (or set_cells_terrain_connect) and Godot picks tiles.
@@ -559,7 +563,7 @@
       if (t.variant >= 0) lines.push(`${k}/probability = 0.15`);
     }
     lines.push(``, `[resource]`, `tile_size = Vector2i(${tileSize}, ${tileSize})`,
-      `terrain_set_0/mode = 0`, `terrain_set_0/terrain_0/name = "${terrainName}"`,
+      `terrain_set_0/mode = 0`, `terrain_set_0/terrain_0/name = "${gdString(terrainName)}"`,
       `terrain_set_0/terrain_0/color = Color(${r}, ${g}, ${b}, 1)`,
       `sources/0 = SubResource("TileSetAtlasSource_1")`, ``);
     return lines.join("\n");
