@@ -19,10 +19,14 @@ Shared: `editor-core.js` (the editor engine), `style.css`.
 
 ### Tiles
 
-Six materials (stone, brick, dirt, grass, metal, cave), 16 or 32 px. Each
+A library of 21 materials in four groups — Nature (dirt, grass, sand, snow,
+ice, mossy stone, leaves, wood), Dungeon (stone, brick, flagstones, ruined
+brick, cave, lava rock), Sci-fi (metal, tech panel, grate, hazard stripes,
+circuit board), Arcane (rune stone, crystal) — at 16 or 32 px. Each
 tileset is the 47-tile "blob" set — one tile for every way the 8 neighbours
 can be filled, corners counted only when both sides next to them are — plus 4
-plain variants. Every pattern repeats per tile, so any tile meets any other
+variants (plain, or carrying the material's special detail: runes, vents, magma).
+Every pattern repeats per tile, so any tile meets any other
 without a seam. The preview paints a random cave with it.
 
 Exports: the PNG; a Godot 4 `.tres` TileSet with one terrain set (match

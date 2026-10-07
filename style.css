@@ -310,3 +310,16 @@ textarea{ resize:vertical; }
 .pixel-canvas{ display:block; image-rendering:pixelated; }
 .grid > *{ min-width:0; } /* let a wide canvas scroll in its panel, not widen the page */
 .export-note{ margin:4px 0 0; color:var(--muted); font-size:14px; }
+
+.tile-library{ display:flex; flex-direction:column; gap:6px; }
+.lib-group{ font-family:'Press Start 2P', monospace; font-size:10px; color:var(--muted); letter-spacing:1px; margin-top:6px; }
+.lib-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.lib-item{
+  display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 6px 5px;
+  background:var(--panel-2); border:2px solid var(--line-soft); border-radius:8px;
+  color:var(--muted); font-size:14px; cursor:pointer;
+}
+.lib-item canvas{ width:96px; height:60px; image-rendering:pixelated; }
+.lib-item:hover{ border-color:var(--line); color:var(--ink); }
+.lib-item[aria-pressed="true"]{ border-color:var(--accent); color:var(--accent); }
+.picked{ font-family:'Press Start 2P', monospace; font-size:11px; color:var(--accent); margin-bottom:12px; }

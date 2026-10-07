@@ -72,6 +72,61 @@
     }));
   }
 
+  // ---- library -------------------------------------------------------------------
+  // One button per material, grouped, each showing a small ledge painted with
+  // that material's own tileset. Thumbnails render one per tick so the page
+  // stays responsive while they fill in.
+  const THUMB_MAP = [
+    "........",
+    "..###...",
+    ".######.",
+    ".##..##.",
+    "........",
+  ].map(r => [...r].map(ch => ch === "#"));
+
+  function buildLibrary() {
+    const box = $("library"), queue = [];
+    for (const group of Tiles.GROUPS) {
+      const h = document.createElement("h3");
+      h.className = "lib-group"; h.textContent = group;
+      box.appendChild(h);
+      const row = document.createElement("div");
+      row.className = "lib-row";
+      box.appendChild(row);
+      for (const [key, m] of Object.entries(Tiles.MATERIALS)) {
+        if (m.group !== group) continue;
+        const b = document.createElement("button");
+        b.className = "lib-item"; b.dataset.material = key;
+        b.setAttribute("aria-pressed", String(key === state.material));
+        const c = document.createElement("canvas");
+        c.width = THUMB_MAP[0].length * 16; c.height = THUMB_MAP.length * 16;
+        const label = document.createElement("span"); label.textContent = m.label;
+        b.append(c, label);
+        b.addEventListener("click", () => pick(key));
+        row.appendChild(b);
+        queue.push([key, c]);
+      }
+    }
+    const next = () => {
+      const job = queue.shift();
+      if (!job) return;
+      const [key, c] = job, ts = Tiles.buildTileset(key, 16, 7);
+      const idx = Tiles.autotile(THUMB_MAP, ts.tiles, 7, Infinity), sheet = imgToCanvas(ts.sheet);
+      const ctx = c.getContext("2d");
+      idx.forEach((row, y) => row.forEach((i, x) => {
+        if (i >= 0) ctx.drawImage(sheet, (i % ts.columns) * 16, Math.floor(i / ts.columns) * 16, 16, 16, x * 16, y * 16, 16, 16);
+      }));
+      setTimeout(next, 0);
+    };
+    next();
+  }
+  function pick(key) {
+    state.material = key;
+    for (const b of document.querySelectorAll(".lib-item")) b.setAttribute("aria-pressed", String(b.dataset.material === key));
+    $("pickedName").textContent = Tiles.MATERIALS[key].label;
+    build();
+  }
+
   // ---- export -------------------------------------------------------------------
   const baseName = () => `${state.material}_${state.size}${state.style ? "_" + state.style : ""}`;
   function downloadText(text, filename, type) {
@@ -108,20 +163,14 @@
   }
 
   async function boot() {
-    for (const [key, m] of Object.entries(Tiles.MATERIALS)) {
-      const o = document.createElement("option");
-      o.value = key; o.textContent = m.label;
-      $("materialSel").appendChild(o);
-    }
     const p = loadPrefs();
     if (p) Object.assign(state, { material: p.material in Tiles.MATERIALS ? p.material : "stone", size: p.size || 16, style: p.style || "", seed: p.seed || 1, zoom: p.zoom || 2 });
     else state.seed = newSeed();
     state.mapSeed = newSeed();
-    $("materialSel").value = state.material; $("sizeSel").value = String(state.size);
+    $("sizeSel").value = String(state.size);
     $("styleSel").value = state.style; $("zoomRange").value = String(state.zoom);
     state.preset = await loadPreset(state.style).catch(() => null);
 
-    $("materialSel").addEventListener("change", (e) => { state.material = e.target.value; build(); });
     $("sizeSel").addEventListener("change", (e) => { state.size = parseInt(e.target.value, 10); build(); });
     $("styleSel").addEventListener("change", async (e) => {
       state.style = e.target.value;
@@ -135,7 +184,8 @@
     $("godotBtn").addEventListener("click", exportGodot);
     $("tiledBtn").addEventListener("click", exportTiled);
     $("jsonBtn").addEventListener("click", exportJson);
-    build();
+    buildLibrary();
+    pick(state.material);
   }
   boot();
 })();

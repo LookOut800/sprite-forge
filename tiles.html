@@ -22,10 +22,15 @@
     <div class="brand">
       <span class="tag">terrain that joins itself</span>
       <h1>TILESETS</h1>
-      <p>Pick a material and get every edge and corner piece, seamless, ready for
-        the terrain brush in Godot or Tiled.</p>
+      <p>Pick a material from the library and get every edge and corner piece,
+        seamless, ready for the terrain brush in Godot or Tiled.</p>
     </div>
   </header>
+
+  <div class="panel">
+    <span class="eyebrow">Library</span>
+    <div class="tile-library" id="library" aria-label="Materials"></div>
+  </div>
 
   <div class="grid">
     <div>
@@ -52,8 +57,7 @@
     <div>
       <div class="panel">
         <span class="eyebrow">Generate</span>
-        <label class="lbl" for="materialSel">Material</label>
-        <select id="materialSel"></select>
+        <div class="picked" id="pickedName"></div>
         <label class="lbl" for="sizeSel">Tile size</label>
         <select id="sizeSel">
           <option value="16">16 × 16</option>

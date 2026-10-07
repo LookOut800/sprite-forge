@@ -93,3 +93,14 @@ test("tiled + json: one entry per tile", () => {
   assertEqual((tiledTsx(ts, "m.png", "Metal").match(/<wangtile /g) || []).length, 51);
   assertEqual(JSON.parse(tilesetJson(ts, "m.png", "metal")).tiles.length, 51);
 });
+
+test("library: every material sits in a known group and builds its variants", () => {
+  for (const [key, m] of Object.entries(MATERIALS)) {
+    assertOk(tiles.GROUPS.includes(m.group), `${key} has no known group`);
+    const plain = Buffer.from(renderTile(key, 255, 16, 3).data).toString("base64");
+    const variants = [0, 1, 2, 3].map(i => Buffer.from(renderTile(key, 255, 16, 3, i).data).toString("base64"));
+    assertOk(!variants.includes(plain), `${key}: a variant looks the same as the plain tile`);
+    assertEqual(new Set(variants).size, 4, `${key}: the 4 variants should all differ`);
+  }
+  assertOk(Object.keys(MATERIALS).length >= 20, "the library should have 20+ materials");
+});
