@@ -132,20 +132,18 @@
     return { w: cw, h: ch, data: out };
   }
 
-  // Scale so the figure is `height` pixels tall. Each output pixel takes the
-  // most common colour among the source pixels it covers (a vote, never an
-  // average), so no new in-between colours appear; a cell more than half
-  // empty stays empty.
-  function fitHeight(img, height) {
-    if (!height || !img.h || img.h === height) return img;
-    const s = img.h / height, ow = Math.max(1, Math.round(img.w / s)), oh = height;
-    const out = new Uint8ClampedArray(ow * oh * 4);
+  // Scale to exactly ow x oh. Each output pixel takes the most common colour
+  // among the source pixels it covers (a vote, never an average), so no new
+  // in-between colours appear; a cell more than half empty stays empty.
+  function fitSize(img, ow, oh) {
+    if (!img.w || !img.h || (img.w === ow && img.h === oh)) return img;
+    const sx = img.w / ow, sy = img.h / oh, out = new Uint8ClampedArray(ow * oh * 4);
     for (let oy = 0; oy < oh; oy++) for (let ox = 0; ox < ow; ox++) {
-      const sx0 = Math.floor(ox * s), sx1 = Math.max(sx0 + 1, Math.floor((ox + 1) * s));
-      const sy0 = Math.floor(oy * s), sy1 = Math.max(sy0 + 1, Math.floor((oy + 1) * s));
+      const x0 = Math.floor(ox * sx), x1 = Math.max(x0 + 1, Math.floor((ox + 1) * sx));
+      const y0 = Math.floor(oy * sy), y1 = Math.max(y0 + 1, Math.floor((oy + 1) * sy));
       const votes = new Map();
       let filled = 0, total = 0, best = -1, top = 0;
-      for (let y = sy0; y < Math.min(sy1, img.h); y++) for (let x = sx0; x < Math.min(sx1, img.w); x++) {
+      for (let y = y0; y < Math.min(y1, img.h); y++) for (let x = x0; x < Math.min(x1, img.w); x++) {
         total++;
         const i = (y * img.w + x) * 4;
         if (img.data[i + 3] < 128) continue;
@@ -160,6 +158,43 @@
       out[o] = (best >> 16) & 255; out[o + 1] = (best >> 8) & 255; out[o + 2] = best & 255; out[o + 3] = 255;
     }
     return { w: ow, h: oh, data: out };
+  }
+  // Scale so the figure is `height` pixels tall, keeping its proportions.
+  function fitHeight(img, height) {
+    if (!height || !img.h || img.h === height) return img;
+    return fitSize(img, Math.max(1, Math.round(img.w * height / img.h)), height);
+  }
+
+  // ---- texture tiles --------------------------------------------------------
+  // The largest centred square of the image.
+  function cropSquare(img) {
+    const n = Math.min(img.w, img.h), x0 = Math.floor((img.w - n) / 2), y0 = Math.floor((img.h - n) / 2);
+    const out = new Uint8ClampedArray(n * n * 4);
+    for (let y = 0; y < n; y++) out.set(img.data.subarray(((y0 + y) * img.w + x0) * 4, ((y0 + y) * img.w + x0 + n) * 4), y * n * 4);
+    return { w: n, h: n, data: out };
+  }
+  // Make a square tile repeat without a seam. The image shifted by half a
+  // tile has no seam at its edges (its edges are the original's middle), so
+  // the edges come from that and the middle from the original, with a
+  // dithered hand-over between them: no blur, no new colours.
+  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
+  function makeSeamless(img, from = 0.45, to = 0.85) {
+    const n = img.w, h = n / 2, data = new Uint8ClampedArray(img.data.length);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      const edge = Math.max(Math.abs(x + 0.5 - h), Math.abs(y + 0.5 - h)) / h; // 0 centre .. 1 edge
+      const t = Math.min(1, Math.max(0, (edge - from) / (to - from)));
+      const useShifted = t > BAYER4[(y % 4) * 4 + (x % 4)];
+      const sx = useShifted ? (x + h) % n : x, sy = useShifted ? (y + h) % n : y;
+      data.set(img.data.subarray((sy * n + sx) * 4, (sy * n + sx) * 4 + 4), (y * n + x) * 4);
+    }
+    return { w: n, h: n, data };
+  }
+  // A snapped render -> one seamless size x size tile, optionally on a
+  // palette (no accents: a texture has no "one neon" rule).
+  function tilePass(img, { size = 16, palette = [] } = {}) {
+    let out = makeSeamless(fitSize(cropSquare(img), size, size));
+    if (palette.length) out = lockPalette(out, palette, { steps: 1 });
+    return out;
   }
 
   // ---- palette lock ---------------------------------------------------------
@@ -261,7 +296,8 @@
 
   const api = {
     rgbToOklab, oklabToRgb, hexToRgb, rgbToHex,
-    removeBackground, cropToContent, fitHeight, buildRamps, lockPalette, stylePass, packSheet,
+    removeBackground, cropToContent, fitSize, fitHeight, cropSquare, makeSeamless, tilePass,
+    buildRamps, lockPalette, stylePass, packSheet,
   };
   if (typeof window !== "undefined") window.SnapCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

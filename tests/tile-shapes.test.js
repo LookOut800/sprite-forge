@@ -2,7 +2,7 @@ const { test, assertEqual, assertOk } = require("./tiny-test");
 const { loadSpriteTool } = require("./helpers/load-sprite-tool");
 
 const { tiles } = loadSpriteTool();
-const { MATERIALS, BLOB_MASKS, MASK, canonical, renderTile, buildTileset, autotile, caveMap, godotTileSet, tiledTsx, tilesetJson } = tiles;
+const { MATERIALS, BLOB_MASKS, MASK, canonical, materialFromImage, renderTile, buildTileset, autotile, caveMap, godotTileSet, tiledTsx, tilesetJson } = tiles;
 const { N, E, S, W, NE, SE, NW } = MASK;
 
 const opaque = (img, x, y) => img.data[(y * img.w + x) * 4 + 3] > 0;
@@ -103,4 +103,17 @@ test("library: every material sits in a known group and builds its variants", ()
     assertEqual(new Set(variants).size, 4, `${key}: the 4 variants should all differ`);
   }
   assertOk(Object.keys(MATERIALS).length >= 20, "the library should have 20+ materials");
+});
+
+test("custom material: an image's pixels become the fill, edges from its own colours", () => {
+  const data = new Uint8ClampedArray(8 * 8 * 4);
+  for (let i = 0; i < 64; i++) data.set(i % 2 ? [200, 150, 90, 255] : [60, 40, 30, 255], i * 4);
+  const mat = materialFromImage({ w: 8, h: 8, data }, "Test");
+  assertEqual(mat.fill(0, 0, 16), "#3c281e");
+  assertEqual(mat.fill(2, 0, 16), "#c8965a", "an 8px texture scales up to a 16px tile");
+  assertEqual(mat.colors.hi, "#c8965a");
+  MATERIALS.__test = mat;
+  const ts = buildTileset("__test", 16, 1);
+  delete MATERIALS.__test;
+  assertEqual(ts.tiles.length, 51);
 });

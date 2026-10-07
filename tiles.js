@@ -8,6 +8,22 @@
   const SnapCore = window.SnapCore;
   const $ = (id) => document.getElementById(id);
   const PREFS_KEY = "spriteForge.tiles.v1";
+  const CUSTOM_TILES_KEY = "spriteForge.customTiles.v1"; // written by Snap to Style's tile mode
+
+  // Texture tiles sent over from Snap to Style become materials in a
+  // "Custom" group at the top of the library.
+  function loadCustomMaterials() {
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY) || "[]"); } catch (e) { return; }
+    for (const t of list) {
+      try {
+        const bin = atob(t.rgba), data = new Uint8ClampedArray(bin.length);
+        for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);
+        Tiles.MATERIALS[t.id] = Tiles.materialFromImage({ w: t.size, h: t.size, data }, t.name);
+      } catch (e) { /* skip a damaged entry */ }
+    }
+    if (list.length && !Tiles.GROUPS.includes("Custom")) Tiles.GROUPS.unshift("Custom");
+  }
 
   const state = { material: "stone", size: 16, style: "", seed: 1, mapSeed: 1, zoom: 2, tileset: null, preset: null };
 
@@ -163,10 +179,14 @@
   }
 
   async function boot() {
+    loadCustomMaterials();
     const p = loadPrefs();
     if (p) Object.assign(state, { material: p.material in Tiles.MATERIALS ? p.material : "stone", size: p.size || 16, style: p.style || "", seed: p.seed || 1, zoom: p.zoom || 2 });
     else state.seed = newSeed();
     state.mapSeed = newSeed();
+    const fromHash = new URLSearchParams(location.hash.slice(1)).get("material");
+    if (fromHash && fromHash in Tiles.MATERIALS) state.material = fromHash;
+    if (!(state.material in Tiles.MATERIALS)) state.material = "stone";
     $("sizeSel").value = String(state.size);
     $("styleSel").value = state.style; $("zoomRange").value = String(state.zoom);
     state.preset = await loadPreset(state.style).catch(() => null);

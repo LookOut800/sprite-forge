@@ -58,6 +58,15 @@ lock Snap to Style uses.
 3. Export each PNG, or **Sheet + JSON**: one sprite sheet, figures
    bottom-aligned in equal cells, with a `frames` index.
 
+**Texture tiles** mode (Make: Texture tiles): the snapped render is cut to its
+largest centred square, scaled to 16 or 32 px by vote, and made seamless — the
+edges come from the image shifted by half a tile (whose edges were the
+original's middle), the centre from the original, with a 4×4 dithered hand-over
+between (no blur, no new colours). A 3×3 repeat shows the result. **Make a
+tileset** saves it in this browser and opens Tiles with it as a material in a
+"Custom" group: the full 47-join set, with edges coloured from the texture's
+own darkest-to-brightest colours.
+
 Styles live in `presets/*.json` (`card-crawler.json` = the Card Crawler style
 bible). Settings you change on the page are remembered in `localStorage`.
 

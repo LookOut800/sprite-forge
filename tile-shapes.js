@@ -385,6 +385,27 @@
     m.fill = (x, y, T, seed) => fill(mod(x, T), mod(y, T), T, seed);
   }
 
+  // A material from a seamless texture tile (Snap to Style's tile mode, or
+  // any square image): its pixels are the fill, scaled to whatever tile
+  // size is asked for; the edge roles come from its own colours, darkest to
+  // brightest, so edges and corners stay in the texture's palette.
+  function materialFromImage(img, label = "Custom") {
+    const S = img.w, hexes = [];
+    for (let i = 0; i < S * S; i++) {
+      const d = img.data;
+      hexes.push("#" + [d[i * 4], d[i * 4 + 1], d[i * 4 + 2]].map(v => v.toString(16).padStart(2, "0")).join(""));
+    }
+    const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
+    const uniq = [...new Set(hexes)].sort((a, b) => lum(a) - lum(b));
+    const at = (q) => uniq[Math.min(uniq.length - 1, Math.round(q * (uniq.length - 1)))];
+    const n = parseInt(uniq[0].slice(1), 16), dim = (v) => Math.round(v * 0.55).toString(16).padStart(2, "0");
+    return {
+      group: "Custom", label, custom: true, rough: 0,
+      colors: { outline: `#${dim(n >> 16)}${dim((n >> 8) & 255)}${dim(n & 255)}`, dark: at(0.15), mid: at(0.5), light: at(0.8), hi: at(1) },
+      fill(x, y, T) { return hexes[Math.floor(mod(y, T) * S / T) * S + Math.floor(mod(x, T) * S / T)]; },
+    };
+  }
+
   // ---- one tile -----------------------------------------------------------------------
   // Edge-band width and corner bevel grow with the tile size.
   function renderTile(materialKey, mask, T, seed, variant = -1) {
@@ -427,7 +448,7 @@
       else if (capH && top && d <= capH) role = (d === 1 ? "capLight" : (x + y) % 3 === 0 ? "capDark" : "cap");
       else if (d < band + 1) role = lit ? "light" : "dark";
       else role = (decor && decor.get(y * T + x)) || mat.fill(x, y, T, seed);
-      put(x, y, c[role] || c.mid);
+      put(x, y, role[0] === "#" ? role : c[role] || c.mid); // a custom material's fill returns colours directly
     }
     // grass blades poke up past a grassy top edge into the empty tile above —
     // drawn inside this tile only, so as stray tufts on the edge rows
@@ -575,6 +596,6 @@
 
   window.SpriteTool.tiles = {
     MATERIALS, GROUPS: ["Nature", "Dungeon", "Sci-fi", "Arcane"], BLOB_MASKS, COLUMNS, MASK: { N, NE, E, SE, S, SW, W, NW },
-    canonical, renderTile, buildTileset, autotile, caveMap, godotTileSet, tiledTsx, tilesetJson,
+    canonical, materialFromImage, renderTile, buildTileset, autotile, caveMap, godotTileSet, tiledTsx, tilesetJson,
   };
 })();

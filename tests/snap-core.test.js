@@ -89,3 +89,47 @@ test("packSheet: frames index covers every sprite, feet aligned to the cell bott
   assertEqual(alpha(sheet, frames.b.x + 1, cell.h - 1), 255, "b sits on the bottom row");
   assertEqual(alpha(sheet, frames.b.x + 1, 0), 0, "and leaves the top empty");
 });
+
+// ---- texture tiles -----------------------------------------------------------
+const { cropSquare, fitSize, makeSeamless, tilePass } = SnapCore;
+function noisy(w, h, seed = 1) {
+  const data = new Uint8ClampedArray(w * h * 4);
+  let s = seed;
+  for (let i = 0; i < w * h; i++) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const v = s % 6; // 6 colours
+    data.set([40 * v, 255 - 40 * v, (v * 70) % 255, 255], i * 4);
+  }
+  return { w, h, data };
+}
+const colourSet = (im) => new Set(Array.from({ length: im.w * im.h }, (_, i) => hexAt(im, i % im.w, Math.floor(i / im.w))));
+
+test("cropSquare: largest centred square", () => {
+  const out = cropSquare(noisy(10, 6));
+  assertEqual([out.w, out.h], [6, 6]);
+});
+
+test("fitSize: exact size, no new colours", () => {
+  const src = noisy(40, 40), out = fitSize(src, 16, 16);
+  assertEqual([out.w, out.h], [16, 16]);
+  const before = colourSet(src);
+  for (const c of colourSet(out)) assertOk(before.has(c), `new colour ${c}`);
+});
+
+test("makeSeamless: opposite edges were neighbours in the source, no new colours", () => {
+  const src = noisy(16, 16, 7), out = makeSeamless(src), h = 8;
+  for (let y = 0; y < 16; y++) {
+    // fully on the shifted image at the edges: column 0 is source column h,
+    // column 15 is source column h-1 — side by side in the source
+    assertEqual(hexAt(out, 0, y), hexAt(src, h, (y + h) % 16));
+    assertEqual(hexAt(out, 15, y), hexAt(src, h - 1, (y + h) % 16));
+  }
+  assertEqual(hexAt(out, 8, 8), hexAt(src, 8, 8), "the middle stays the original");
+  const before = colourSet(src);
+  for (const c of colourSet(out)) assertOk(before.has(c), `new colour ${c}`);
+});
+
+test("tilePass: any render -> one square tile of the asked size", () => {
+  const out = tilePass(noisy(50, 30), { size: 16 });
+  assertEqual([out.w, out.h], [16, 16]);
+});

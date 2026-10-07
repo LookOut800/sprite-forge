@@ -23,7 +23,8 @@
       <span class="tag">AI render → game sprite</span>
       <h1>SNAP TO STYLE</h1>
       <p>Drop AI renders in. Out come pixel sprites on a clean grid, background gone,
-        all the same height and palette.</p>
+        all the same height and palette — or seamless texture tiles that become a
+        full tileset in one click.</p>
     </div>
     <button id="sheetBtn" disabled>⭳ Sheet + JSON</button>
   </header>
@@ -44,6 +45,11 @@
     <div>
       <div class="panel">
         <span class="eyebrow">Style</span>
+        <label class="lbl" for="modeSel">Make</label>
+        <select id="modeSel">
+          <option value="sprite">Sprites (figures, props)</option>
+          <option value="tile">Texture tiles (seamless)</option>
+        </select>
         <label class="lbl" for="presetSel">Preset</label>
         <select id="presetSel">
           <option value="">None — snap only</option>
@@ -53,13 +59,24 @@
         <input type="number" id="colorsIn" min="2" max="64" value="16">
         <label class="lbl" for="pixelIn">Pixel size (blank = auto)</label>
         <input type="number" id="pixelIn" min="1" placeholder="auto">
-        <label class="lbl" for="heightIn">Figure height px (blank = keep)</label>
-        <input type="number" id="heightIn" min="4" placeholder="keep">
-        <label class="field"><input type="checkbox" id="bgChk" checked> Remove background + shadow</label>
+        <div id="spriteOpts">
+          <label class="lbl" for="heightIn">Figure height px (blank = keep)</label>
+          <input type="number" id="heightIn" min="4" placeholder="keep">
+          <label class="field"><input type="checkbox" id="bgChk" checked> Remove background + shadow</label>
+        </div>
+        <div id="tileOpts" hidden>
+          <label class="lbl" for="tileSizeSel">Tile size</label>
+          <select id="tileSizeSel">
+            <option value="16">16 × 16</option>
+            <option value="32">32 × 32</option>
+          </select>
+        </div>
         <label class="lbl" for="paletteIn">Palette lock (hex, blank = off)</label>
         <textarea id="paletteIn" rows="3" placeholder="#E9DDC7, #7A4B32, …"></textarea>
-        <label class="lbl" for="accentIn">Accents — one per sprite</label>
-        <textarea id="accentIn" rows="2" placeholder="#FF7A1A, #4CE0A0"></textarea>
+        <div id="accentOpts">
+          <label class="lbl" for="accentIn">Accents — one per sprite</label>
+          <textarea id="accentIn" rows="2" placeholder="#FF7A1A, #4CE0A0"></textarea>
+        </div>
         <div class="palette-preview" id="palettePreview" aria-label="Palette with ramps"></div>
         <div class="gen-actions">
           <button class="primary" id="rerunBtn" disabled>⚡ Process again</button>

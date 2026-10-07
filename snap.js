@@ -10,6 +10,7 @@ const SnapCore = window.SnapCore;
 const $ = (id) => document.getElementById(id);
 const items = []; // { name, bytes, srcUrl, snapped, styled }
 const PREFS_KEY = "spriteForge.snap.v1";
+const CUSTOM_TILES_KEY = "spriteForge.customTiles.v1"; // read by tiles.js
 
 function toast(msg) {
   const t = $("toast");
@@ -23,6 +24,8 @@ const parseHexList = (s) => (s.match(/#?[0-9a-fA-F]{6}\b/g) || []).map(h => "#" 
 function readStyle() {
   const num = (id) => { const v = parseInt($(id).value, 10); return Number.isFinite(v) && v > 0 ? v : null; };
   return {
+    mode: $("modeSel").value,
+    tileSize: parseInt($("tileSizeSel").value, 10),
     colors: num("colorsIn") || 16,
     pixelSize: num("pixelIn"),
     height: num("heightIn"),
@@ -32,6 +35,9 @@ function readStyle() {
   };
 }
 function applyStyle(s) {
+  if (s.mode) $("modeSel").value = s.mode;
+  if (s.tileSize) $("tileSizeSel").value = String(s.tileSize);
+  syncMode();
   $("colorsIn").value = s.colors || 16;
   $("pixelIn").value = s.pixelSize || "";
   $("heightIn").value = s.height || "";
@@ -39,6 +45,11 @@ function applyStyle(s) {
   $("paletteIn").value = (s.palette || []).join(", ");
   $("accentIn").value = (s.accents || []).join(", ");
   renderPalettePreview();
+}
+function syncMode() {
+  const tile = $("modeSel").value === "tile";
+  $("spriteOpts").hidden = tile; $("accentOpts").hidden = tile; $("tileOpts").hidden = !tile;
+  $("sheetBtn").hidden = tile;
 }
 function savePrefs() {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify({ preset: $("presetSel").value, style: readStyle() })); } catch (e) { /* private mode */ }
@@ -79,6 +90,11 @@ async function processItem(item, style) {
   // whose palette option is a plain nearest-colour map
   const out = process_image(item.bytes, style.colors, style.pixelSize, null);
   item.snapped = await decode(out);
+  item.mode = style.mode;
+  if (style.mode === "tile") {
+    item.styled = SnapCore.tilePass(item.snapped, { size: style.tileSize, palette: style.palette });
+    return;
+  }
   item.styled = SnapCore.stylePass(item.snapped, {
     removeBackground: style.removeBackground,
     height: style.height,
@@ -129,6 +145,13 @@ function renderResults() {
       const fit = (img) => Math.max(1, Math.floor(160 / Math.max(img.w, img.h, 1)));
       row.appendChild(fig(`snapped ${item.snapped.w}×${item.snapped.h}`, toCanvas(item.snapped, fit(item.snapped))));
       row.appendChild(fig(`styled ${item.styled.w}×${item.styled.h}`, toCanvas(item.styled, fit(item.styled))));
+      if (item.mode === "tile") row.appendChild(fig("repeated 3×3", repeatCanvas(item.styled, 3, Math.max(1, Math.floor(160 / (item.styled.w * 3))))));
+      if (item.mode === "tile") {
+        const tb = document.createElement("button");
+        tb.className = "primary"; tb.textContent = "▦ Make a tileset";
+        tb.addEventListener("click", () => sendToTiles(item));
+        row.appendChild(tb);
+      }
       const dl = document.createElement("button");
       dl.className = "secondary"; dl.textContent = "⭳ PNG";
       dl.addEventListener("click", () => downloadImg(item.styled, `${baseName(item.name)}.png`));
@@ -162,6 +185,31 @@ async function addFiles(files) {
   await runAll();
 }
 
+// the tile laid out n x n, to show it repeats without a seam
+function repeatCanvas(img, n, scale) {
+  const one = toCanvas(img), c = document.createElement("canvas");
+  c.width = img.w * n * scale; c.height = img.h * n * scale;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) ctx.drawImage(one, x * img.w * scale, y * img.h * scale, img.w * scale, img.h * scale);
+  return c;
+}
+
+// Hand the tile to the Tiles tool: kept in this browser's storage (newest
+// first, up to 12), then open Tiles on it.
+function sendToTiles(item) {
+  const id = `custom-${Date.now().toString(36)}`;
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem(CUSTOM_TILES_KEY) || "[]"); } catch (e) { /* unreadable: start over */ }
+  let bin = "";
+  item.styled.data.forEach((v) => { bin += String.fromCharCode(v); });
+  list.unshift({ id, name: baseName(item.name), size: item.styled.w, rgba: btoa(bin) });
+  try {
+    localStorage.setItem(CUSTOM_TILES_KEY, JSON.stringify(list.slice(0, 12)));
+  } catch (e) { toast("Couldn't save it in this browser (private mode?)."); return; }
+  location.href = `tiles.html#material=${id}`;
+}
+
 function exportSheet() {
   const done = items.filter(i => i.styled && i.styled.w);
   const { sheet, frames, cell } = SnapCore.packSheet(done.map(i => ({ name: baseName(i.name), img: i.styled })));
@@ -177,7 +225,14 @@ async function boot() {
   if (prefs) { $("presetSel").value = prefs.preset || ""; applyStyle(prefs.style || {}); }
   else await loadPreset($("presetSel").value);
 
-  $("presetSel").addEventListener("change", async () => { await loadPreset($("presetSel").value); savePrefs(); });
+  $("presetSel").addEventListener("change", async () => {
+    const mode = $("modeSel").value, tileSize = $("tileSizeSel").value;
+    await loadPreset($("presetSel").value);
+    $("modeSel").value = mode; $("tileSizeSel").value = tileSize; syncMode(); // a preset is a style, not a mode
+    savePrefs();
+  });
+  $("modeSel").addEventListener("change", () => { syncMode(); if (items.length) runAll(); else savePrefs(); });
+  $("tileSizeSel").addEventListener("change", () => { if (items.length) runAll(); else savePrefs(); });
   for (const id of ["paletteIn", "accentIn"]) $(id).addEventListener("input", renderPalettePreview);
   $("rerunBtn").addEventListener("click", runAll);
   $("sheetBtn").addEventListener("click", exportSheet);
