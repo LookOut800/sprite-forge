@@ -1,0 +1,10 @@
+{
+  "name": "Card Crawler — HD-2D Outlaw",
+  "source": "card-crawler docs/STYLE_BIBLE.md",
+  "height": 64,
+  "removeBackground": true,
+  "colors": 16,
+  "rampSteps": 1,
+  "palette": ["#E9DDC7", "#C9A876", "#7A4B32", "#6E2C2C", "#3C4650", "#161320", "#4A7C94"],
+  "accents": ["#FF7A1A", "#4CE0A0", "#FF3D9A"]
+}

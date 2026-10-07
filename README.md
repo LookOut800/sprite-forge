@@ -3,19 +3,44 @@
 A pixel-art hero generator and editor that runs entirely in the browser —
 no build step, no server, no dependencies beyond one Google Fonts link.
 
-## Files
+## Tools (pages)
 
-- `index.html` — the page
-- `style.css` — all styling
-- `app.js` — the generator + editor logic
+Every page shares the nav at the top; each is a separate HTML file.
+
+- `index.html` — **Hero**: hero generator + pixel editor (`app.js`, `hero-shapes.js`)
+- `ships.html` — **Ships**: ship generator + editor (`ships.js`, `ship-shapes.js`)
+- `snap.html` — **Snap to Style**: AI renders in, game sprites out (`snap.js`, `snap-core.js`)
+
+Shared: `editor-core.js` (the editor engine), `style.css`.
+
+### Snap to Style
+
+1. [Sprite Fusion Pixel Snapper](https://github.com/Hugo-Dz/spritefusion-pixel-snapper)
+   (MIT, vendored as WebAssembly in `vendor/pixel-snapper/`) finds the grid an
+   AI render implies and snaps it, quantizing to N colours.
+2. Our style pass (`snap-core.js`): flood out the background plate and the
+   grey drop shadow, crop, scale to a fixed figure height by majority vote (no
+   new colours), then lock to a palette in OKLab with a light/dark ramp per
+   colour so shading survives. Accents (neons): only the strongest one per
+   sprite is kept.
+3. Export each PNG, or **Sheet + JSON**: one sprite sheet, figures
+   bottom-aligned in equal cells, with a `frames` index.
+
+Styles live in `presets/*.json` (`card-crawler.json` = the Card Crawler style
+bible). Settings you change on the page are remembered in `localStorage`.
+
+Snap needs the page served over http (a WebAssembly module can't load from
+`file://`): GitHub Pages, or `python3 -m http.server` and open
+`localhost:8000/snap.html`. Hero and Ships still open straight from disk.
 
 ## Run it locally
 
-Just open `index.html` in a browser. No server required.
+Open `index.html` in a browser, or run `python3 -m http.server` in this folder
+for all pages (Snap needs it). Tests: `npm test` (no install needed).
 
 ## Put it on your website
 
-Upload all three files to any static host, keeping them in the same folder
+Upload the whole folder to any static host, keeping the layout
 (GitHub Pages, Netlify, Vercel, S3, or plain FTP to a shared host all work
 the same way — there's nothing to build). Then link to `index.html`, or make
 it the folder's own `index.html` if you want it at its own URL.
