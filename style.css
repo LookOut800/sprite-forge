@@ -257,7 +257,10 @@ footer.note a{ color:var(--accent); }
   display:flex; align-items:center; gap:6px; flex-wrap:wrap;
   margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--line-soft);
 }
-.appnav-brand{ font-family:'Press Start 2P', monospace; font-size:11px; color:var(--warm); margin-right:10px; }
+.appnav a.appnav-brand{
+  font-family:'Press Start 2P', monospace; font-size:11px; color:var(--warm);
+  margin-right:10px; padding:4px 0; border:0; background:none;
+}
 .appnav a{
   color:var(--muted); text-decoration:none; font-size:16px;
   padding:4px 10px; border:1px solid transparent; border-radius:6px;
@@ -287,3 +290,18 @@ textarea{ resize:vertical; }
   background:repeating-conic-gradient(var(--checker-a) 0 25%, var(--checker-b) 0 50%) 0 0/12px 12px;
 }
 .snap-row figcaption{ font-size:13px; color:var(--muted); }
+
+/* ---- index.html (home) -------------------------------------------------- */
+.tool-cards{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:17px; }
+.tool-card{
+  display:flex; flex-direction:column; gap:8px; padding:18px;
+  background:var(--panel); border:2px solid var(--line); border-radius:10px;
+  color:var(--ink); text-decoration:none;
+}
+.tool-card:hover, .tool-card:focus-visible{ border-color:var(--accent); }
+.tool-card h2{ font-family:'Press Start 2P', monospace; font-size:14px; color:var(--warm); }
+.tool-card p{ margin:0; color:var(--muted); font-size:16px; }
+.tool-preview{
+  height:128px; width:auto; align-self:center; image-rendering:pixelated; margin-bottom:6px;
+}
+.tool-preview.wide{ max-width:100%; object-fit:contain; }

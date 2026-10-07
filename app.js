@@ -88,8 +88,8 @@
     const { lastRecipe: recipe, lastColors: colors, pixels: frontPixels } = editor.state;
     editor.setFrame("back", buildGridBack(recipe, colors, frontPixels));
     editor.setFrame("side", buildGridProfile(recipe, colors, frontPixels, 0));
-    editor.setFrame("run1", buildGridProfile(recipe, colors, frontPixels, 1));
-    editor.setFrame("run2", buildGridProfile(recipe, colors, frontPixels, -1));
+    editor.setFrame("run1", buildGridProfile(recipe, colors, frontPixels, 1, Math.PI / 2));
+    editor.setFrame("run2", buildGridProfile(recipe, colors, frontPixels, -1, 3 * Math.PI / 2));
     editor.setFrame("jumpr", buildGridJump(recipe, colors, frontPixels, 1));
     editor.setFrame("jumpl", buildGridJump(recipe, colors, frontPixels, -1));
     renderFrameTabs();

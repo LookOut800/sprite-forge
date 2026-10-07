@@ -1,5 +1,5 @@
 // Loads the plain-global Sprite Forge scripts into a fresh fake `window` —
-// the same way index.html/ships.html load them via <script> tags, just
+// the same way hero.html/ships.html load them via <script> tags, just
 // without a browser. Clears the require cache each call so tests don't
 // leak state between files (every call gets its own fresh SpriteTool).
 function loadSpriteTool() {

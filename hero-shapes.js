@@ -256,6 +256,51 @@
     }
   }
 
+  // ---- the cape in motion ---------------------------------------------------
+  // The front view's cape is a short streamer fixed beside the head. In the
+  // moving poses that would just hang there frozen, so those poses strip it
+  // and draw a tail that trails BEHIND the facing direction instead, shaped
+  // by the motion: hanging when standing, streaming and rippling when
+  // running (a different `phase` each run frame), lifting in a jump.
+  //
+  // stripCape: the live canvas minus the generated streamer. A cell is put
+  // back to its no-cape value only if it still holds exactly what the
+  // generator drew there, so anything painted over by hand stays.
+  function stripCape(recipe, colors, livePixels) {
+    if (!recipe.capeDir) return { pixels: livePixels, color: null };
+    const withCape = buildGrid(recipe, colors);
+    const without = buildGrid({ ...recipe, capeDir: 0 }, colors);
+    const out = livePixels.slice();
+    let color = null;
+    for (let i = 0; i < out.length; i++) {
+      if (withCape[i] === without[i] || out[i] !== withCape[i]) continue;
+      if (withCape[i] !== DARK && !color) color = withCape[i]; // the cape's own colour, not its outline
+      out[i] = without[i];
+    }
+    return { pixels: out, color: color || colors[4] };
+  }
+
+  const TRAIL_SHAPES = {
+    stand: { len: 4, droop: 1.1, amp: 0.25 },
+    run:   { len: 6, droop: 0.2, amp: 1.0 },
+    jump:  { len: 5, droop: -0.45, amp: 0.7 },
+  };
+  // Tail tied at the back of the neck (above the arms' swing, so the two
+  // never blur together), running away from faceDir. Two pixels thick except
+  // the tip; only fills empty cells, so it passes behind the body and the
+  // arms drawn after it.
+  function paintTrail(set, get, recipe, color, ttop, faceDir, mode, phase, by = 0) {
+    const { len, droop, amp } = TRAIL_SHAPES[mode];
+    const x0 = 7 + (faceDir > 0 ? 0 : 1) - faceDir * recipe.hwid, y0 = ttop - 1 + by;
+    for (let k = 0; k < len; k++) {
+      // the ripple grows toward the free end; the root stays pinned
+      const wave = amp * (k / len) * 2 * Math.sin(phase - k * 1.1);
+      const x = x0 - faceDir * k, y = y0 + Math.round(droop * k + wave);
+      if (!get(x, y)) set(x, y, color);
+      if (k < len - 1 && !get(x, y + 1)) set(x, y + 1, color);
+    }
+  }
+
   // ---- bake a recipe + 5 colours into a 16x26 pixel grid (front, standing) -
   function buildGrid(recipe, colors) {
     const [skin, , limb, acc] = colors;
@@ -334,9 +379,12 @@
   // Same single-eye/nose-bump profile treatment as buildGridProfile, so all
   // three "in motion" poses (side, run, jump) read as one visual language.
   function buildGridJump(recipe, colors, livePixels, faceDir) {
+    const cape = stripCape(recipe, colors, livePixels);
+    livePixels = cape.pixels;
     const grid = new Array(W * H).fill(null);
     const idx = (x, y) => (x >= 0 && x < W && y >= 0 && y < H) ? y * W + x : -1;
     const set = (x, y, c) => { const i = idx(x, y); if (i >= 0) grid[i] = c; };
+    const get = (x, y) => { const i = idx(x, y); return i < 0 || grid[i]; };
     const sample = (x, y, fallback) => { const i = idx(x, y); return (i >= 0 && livePixels[i]) || fallback; };
     const { hw, th, hwid, arm, leg, ei, ej, hh } = recipe;
     const { hipY, ttop, htop } = computeLayout(recipe);
@@ -350,6 +398,7 @@
     // overwritten by the angled versions below.
     copyBand(set, livePixels, 0, ttop, 0, by);       // head + anything above the torso
     copyBand(set, livePixels, ttop, ttop + th, 0, by); // torso band: belt, emblem, flare, cape, resting arms
+    if (cape.color) paintTrail(set, get, recipe, cape.color, ttop, faceDir, "jump", Math.PI / 2, by);
 
     const legBackOrigin = 9 - hw, legFrontOrigin = 6 + hw;
     limbAngledSampled(set, 6 + faceDir, hipY + by, leg, legTrailAngle, faceDir,
@@ -380,10 +429,15 @@
   // colour is sampled straight off the live canvas; only legs/arms actually
   // move and need their colour carried from their own straight-down row.
   // `stride`: 0 = standing side view, +1 / -1 = the two run-cycle extremes.
-  function buildGridProfile(recipe, colors, livePixels, stride) {
+  // `phase`: where a running cape is in its ripple (radians); leave it out
+  // for the standing side view, where the cape just hangs.
+  function buildGridProfile(recipe, colors, livePixels, stride, phase) {
+    const cape = stripCape(recipe, colors, livePixels);
+    livePixels = cape.pixels;
     const grid = new Array(W * H).fill(null);
     const idx = (x, y) => (x >= 0 && x < W && y >= 0 && y < H) ? y * W + x : -1;
     const set = (x, y, c) => { const i = idx(x, y); if (i >= 0) grid[i] = c; };
+    const get = (x, y) => { const i = idx(x, y); return i < 0 || grid[i]; };
     const sample = (x, y, fallback) => { const i = idx(x, y); return (i >= 0 && livePixels[i]) || fallback; };
     const { hw, th, hwid, leg, arm, ei, ej, hh } = recipe;
     const { hipY, ttop, htop } = computeLayout(recipe);
@@ -399,6 +453,9 @@
     // hair/cape cells. Neither band moves position in profile, so no offset.
     copyBand(set, livePixels, 0, ttop, 0, 0);       // head + anything drawn above the torso
     copyBand(set, livePixels, ttop, ttop + th, 0, 0); // torso band: belt, emblem, flare, cape, resting arms
+    if (cape.color) {
+      paintTrail(set, get, recipe, cape.color, ttop, faceDir, phase == null ? "stand" : "run", phase ?? 0);
+    }
 
     // legs: one biased toward the facing direction (front leg), one away —
     // each overwrites the resting leg with an angled one, colour carried from
@@ -436,8 +493,8 @@
   function buildRunCycleFrames(recipe, colors, livePixels, frameCount = 8) {
     const frames = [];
     for (let k = 0; k < frameCount; k++) {
-      const stride = Math.sin((2 * Math.PI * k) / frameCount);
-      frames.push(buildGridProfile(recipe, colors, livePixels, stride));
+      const phase = (2 * Math.PI * k) / frameCount;
+      frames.push(buildGridProfile(recipe, colors, livePixels, Math.sin(phase), phase));
     }
     return frames;
   }

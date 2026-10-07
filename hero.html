@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sprite Forge — Ship Editor</title>
-<meta name="description" content="Generate a pixel-art spaceship and edit it by hand with a pencil, fill bucket, mirror painting and undo. Runs entirely in your browser.">
+<title>Sprite Forge — Pixel Hero Editor</title>
+<meta name="description" content="Generate a pixel-art hero and edit it by hand with a pencil, fill bucket, mirror painting and undo. Runs entirely in your browser.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -13,15 +13,15 @@
 <div class="wrap">
   <nav class="appnav" aria-label="Tools">
     <a class="appnav-brand" href="index.html">SPRITE FORGE</a>
-    <a href="hero.html">Hero</a>
-    <a href="ships.html" aria-current="page">Ships</a>
+    <a href="hero.html" aria-current="page">Hero</a>
+    <a href="ships.html">Ships</a>
     <a href="snap.html">Snap to Style</a>
   </nav>
   <header class="top">
     <div class="brand">
-      <span class="tag">pixel ship editor</span>
-      <h1>SPRITE FORGE — SHIPS</h1>
-      <p>Roll a random hull, then paint over it by hand — pencil, fill, mirror and undo.</p>
+      <span class="tag">pixel hero editor</span>
+      <h1>SPRITE FORGE</h1>
+      <p>Roll a random hero, then paint over it by hand — pencil, fill, mirror and undo.</p>
     </div>
     <button id="downloadBtn">⭳ Download PNG</button>
   </header>
@@ -29,12 +29,13 @@
   <div class="grid">
     <div>
       <div class="panel">
-        <span class="eyebrow">Canvas — top-down (edit)</span>
+        <span class="eyebrow">Canvas</span>
         <div class="stage-scroll">
           <div class="stage">
-            <canvas id="pixels" width="270" height="270"></canvas>
+            <canvas id="pixels" width="256" height="416"></canvas>
           </div>
         </div>
+        <div class="frame-tabs" id="frameTabs" aria-label="Pose frame" hidden></div>
         <div class="toolbar">
           <div class="btn-row" role="group" aria-label="Drawing tool">
             <button class="tbtn" data-tool="pencil" aria-pressed="true">✏️ Pencil</button>
@@ -53,31 +54,16 @@
         <div class="toolbar">
           <label class="field"><input type="checkbox" id="symmetryChk" checked> Mirror left/right</label>
           <label class="field"><input type="checkbox" id="gridChk"> Show grid</label>
-          <label class="field">Zoom <input type="range" id="zoomRange" min="5" max="20" value="9"></label>
+          <label class="field">Zoom <input type="range" id="zoomRange" min="10" max="40" value="16"></label>
         </div>
         <div class="swatches" id="swatches" aria-label="Colour palette"></div>
-      </div>
-
-      <div class="panel">
-        <span class="eyebrow">Side-on view (preview)</span>
-        <p style="margin:0 0 10px; color:var(--muted); font-size:13px;">
-          The same hull, viewed from the side instead of from above. This
-          redraws from the generated recipe whenever you generate, reshape
-          or recolour — hand edits on the top-down canvas don't carry over
-          to it, since it's a different angle on the same ship, not a pose.
-        </p>
-        <div class="stage-scroll">
-          <div class="stage">
-            <canvas id="sideView" width="180" height="180"></canvas>
-          </div>
-        </div>
       </div>
     </div>
 
     <div>
       <div class="panel">
         <span class="eyebrow">Auto-generate</span>
-        <label class="lbl" for="presetSel">Hull class</label>
+        <label class="lbl" for="presetSel">Body type</label>
         <select id="presetSel"></select>
         <label class="lbl" for="paletteSel">Colour set</label>
         <select id="paletteSel">
@@ -106,12 +92,39 @@
       </div>
 
       <div class="panel">
-        <span class="eyebrow">Gallery</span>
-        <div class="gallery-strip" id="galleryStrip">
-          <span class="empty-note">Saved ships appear here.</span>
+        <span class="eyebrow">Pose sheet</span>
+        <p style="margin:0 0 10px; color:var(--muted); font-size:15px;">
+          Generates back, side, run and jump poses from the active body as
+          their own editable frames — switch between them with the tabs
+          above the canvas and touch any of them up by hand, same tools as
+          the front. Everything above the hips carries over as a whole when
+          they're first generated; only the legs and arms actually move.
+        </p>
+        <div class="gen-actions">
+          <button class="primary" id="genPosesBtn" style="flex:1;">🏃 Generate poses</button>
         </div>
         <div class="gen-actions">
-          <button class="secondary" id="saveBtn">💾 Save to gallery</button>
+          <button class="secondary" id="poseSheetBtn" style="flex:1;">👁 Preview merged sheet</button>
+        </div>
+        <p style="margin:10px 0; color:var(--muted); font-size:15px;">
+          Experimental: an animated run cycle sampled at more points along the
+          same leg/arm swing than the fixed run poses above.
+        </p>
+        <div class="gen-actions">
+          <button class="secondary" id="runCycleBtn" style="flex:1;">🎞 Preview run cycle (animated)</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="eyebrow">Gallery</span>
+        <div class="gallery-strip" id="galleryStrip">
+          <span class="empty-note">Saved sprites appear here.</span>
+        </div>
+        <div class="gen-actions">
+          <button class="secondary" id="saveBtn">💾 Save this pose</button>
+          <button class="secondary" id="saveSheetBtn">📚 Save sprite sheet</button>
+        </div>
+        <div class="gen-actions">
           <button class="secondary" id="sheetBtn">🗂 Export sheet</button>
         </div>
       </div>
@@ -123,8 +136,40 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-backdrop" id="poseModalBackdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <span class="eyebrow" style="margin:0;">Pose sheet preview</span>
+      <button class="tbtn" id="poseModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="pose-preview-wrap">
+      <canvas id="poseModalCanvas"></canvas>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="poseModalClose2">Close</button>
+      <button class="primary" id="poseModalDownload">⭳ Download PNG</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="runCycleModalBackdrop" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <span class="eyebrow" style="margin:0;">Run cycle preview</span>
+      <button class="tbtn" id="runCycleModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="pose-preview-wrap">
+      <canvas id="runCycleCanvas"></canvas>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" id="runCycleModalClose2">Close</button>
+      <button class="primary" id="runCycleModalDownload">⭳ Download strip PNG</button>
+    </div>
+  </div>
+</div>
+
 <script src="editor-core.js"></script>
-<script src="ship-shapes.js"></script>
-<script src="ships.js"></script>
+<script src="hero-shapes.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

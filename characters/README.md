@@ -1,6 +1,6 @@
 # Characters
 
-Hand-designed bosses and NPCs made in [Sprite Forge](../index.html), imported
+Hand-designed bosses and NPCs made in [Sprite Forge](../hero.html), imported
 from browser downloads and organized here.
 
 - `originals/` — the designed sprites, one file per named variant. See

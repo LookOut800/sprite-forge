@@ -3,8 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sprite Forge — Pixel Hero Editor</title>
-<meta name="description" content="Generate a pixel-art hero and edit it by hand with a pencil, fill bucket, mirror painting and undo. Runs entirely in your browser.">
+<title>Sprite Forge — Pixel-Art Tools for Game Makers</title>
+<meta name="description" content="Free pixel-art tools that run in your browser: generate heroes and ships, edit them by hand, and turn AI renders into game-ready sprites held to your style.">
+<script>
+  // Hero share links used to live on this page (index.html#preset=…&seed=…);
+  // send them on to the hero editor so old links keep working.
+  const toHero = () => { if (/(^#|&)seed=/.test(location.hash)) location.replace("hero.html" + location.hash); };
+  toHero();
+  addEventListener("hashchange", toHero);
+</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -12,164 +19,46 @@
 
 <div class="wrap">
   <nav class="appnav" aria-label="Tools">
-    <span class="appnav-brand">SPRITE FORGE</span>
-    <a href="index.html" aria-current="page">Hero</a>
+    <a class="appnav-brand" href="index.html" aria-current="page">SPRITE FORGE</a>
+    <a href="hero.html">Hero</a>
     <a href="ships.html">Ships</a>
     <a href="snap.html">Snap to Style</a>
   </nav>
   <header class="top">
     <div class="brand">
-      <span class="tag">pixel hero editor</span>
+      <span class="tag">pixel-art tools · free · in your browser</span>
       <h1>SPRITE FORGE</h1>
-      <p>Roll a random hero, then paint over it by hand — pencil, fill, mirror and undo.</p>
+      <p>Make sprites for your game: generate a hero or a ship and paint over it,
+        or bring in AI renders and get back pixel art that matches your style.
+        Nothing to install, nothing uploaded.</p>
     </div>
-    <button id="downloadBtn">⭳ Download PNG</button>
   </header>
 
-  <div class="grid">
-    <div>
-      <div class="panel">
-        <span class="eyebrow">Canvas</span>
-        <div class="stage-scroll">
-          <div class="stage">
-            <canvas id="pixels" width="256" height="416"></canvas>
-          </div>
-        </div>
-        <div class="frame-tabs" id="frameTabs" aria-label="Pose frame" hidden></div>
-        <div class="toolbar">
-          <div class="btn-row" role="group" aria-label="Drawing tool">
-            <button class="tbtn" data-tool="pencil" aria-pressed="true">✏️ Pencil</button>
-            <button class="tbtn" data-tool="erase" aria-pressed="false">🧽 Erase</button>
-            <button class="tbtn" data-tool="fill" aria-pressed="false">🪣 Fill</button>
-            <button class="tbtn" data-tool="eyedrop" aria-pressed="false">💧 Pick</button>
-          </div>
-          <div class="btn-row">
-            <button class="tbtn" id="undoBtn">↶ Undo</button>
-            <button class="tbtn" id="redoBtn">↷ Redo</button>
-            <button class="tbtn" id="flipBtn">⇋ Flip</button>
-            <button class="tbtn" id="clearBtn">🗑 Clear</button>
-            <button class="tbtn" id="importBtn" title="Open a PNG (an export, any pixel art, or a reference image)">📂 Open PNG</button>
-          </div>
-        </div>
-        <div class="toolbar">
-          <label class="field"><input type="checkbox" id="symmetryChk" checked> Mirror left/right</label>
-          <label class="field"><input type="checkbox" id="gridChk"> Show grid</label>
-          <label class="field">Zoom <input type="range" id="zoomRange" min="10" max="40" value="16"></label>
-        </div>
-        <div class="swatches" id="swatches" aria-label="Colour palette"></div>
-      </div>
-    </div>
-
-    <div>
-      <div class="panel">
-        <span class="eyebrow">Auto-generate</span>
-        <label class="lbl" for="presetSel">Body type</label>
-        <select id="presetSel"></select>
-        <label class="lbl" for="paletteSel">Colour set</label>
-        <select id="paletteSel">
-          <option value="c64">C64 — muted terminal</option>
-          <option value="confetti">Confetti — bold primaries</option>
-          <option value="candy">Candy — pastel pop</option>
-          <option value="deepspace">Deep Space — stealth navy</option>
-          <option value="nebula">Nebula — cosmic pink</option>
-          <option value="solarflare">Solar Flare — warm amber</option>
-          <option value="icefield">Ice Field — frozen cyan</option>
-          <option value="toxic">Toxic — alien green</option>
-        </select>
-        <div class="palette-preview" id="palettePreview" aria-label="Colours in this set"></div>
-        <div class="gen-actions">
-          <button class="primary" id="generateBtn">🎲 Generate new</button>
-        </div>
-        <div class="gen-actions">
-          <button class="secondary" id="recolorBtn">🎨 Recolour</button>
-          <button class="secondary" id="reshapeBtn">🧬 Reshape</button>
-        </div>
-        <div class="seed-row">
-          <span class="seed-label">Seed</span>
-          <span class="seed-value" id="seedDisplay"></span>
-          <button class="secondary" id="copyLinkBtn">🔗 Copy link</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <span class="eyebrow">Pose sheet</span>
-        <p style="margin:0 0 10px; color:var(--muted); font-size:15px;">
-          Generates back, side, run and jump poses from the active body as
-          their own editable frames — switch between them with the tabs
-          above the canvas and touch any of them up by hand, same tools as
-          the front. Everything above the hips carries over as a whole when
-          they're first generated; only the legs and arms actually move.
-        </p>
-        <div class="gen-actions">
-          <button class="primary" id="genPosesBtn" style="flex:1;">🏃 Generate poses</button>
-        </div>
-        <div class="gen-actions">
-          <button class="secondary" id="poseSheetBtn" style="flex:1;">👁 Preview merged sheet</button>
-        </div>
-        <p style="margin:10px 0; color:var(--muted); font-size:15px;">
-          Experimental: an animated run cycle sampled at more points along the
-          same leg/arm swing than the fixed run poses above.
-        </p>
-        <div class="gen-actions">
-          <button class="secondary" id="runCycleBtn" style="flex:1;">🎞 Preview run cycle (animated)</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <span class="eyebrow">Gallery</span>
-        <div class="gallery-strip" id="galleryStrip">
-          <span class="empty-note">Saved sprites appear here.</span>
-        </div>
-        <div class="gen-actions">
-          <button class="secondary" id="saveBtn">💾 Save this pose</button>
-          <button class="secondary" id="saveSheetBtn">📚 Save sprite sheet</button>
-        </div>
-        <div class="gen-actions">
-          <button class="secondary" id="sheetBtn">🗂 Export sheet</button>
-        </div>
-      </div>
-    </div>
+  <div class="tool-cards">
+    <a class="tool-card" href="hero.html">
+      <canvas class="tool-preview" id="heroPreview" width="16" height="26" aria-hidden="true"></canvas>
+      <h2>Hero</h2>
+      <p>Roll a character, edit it pixel by pixel, then get back, side, jump and an 8-frame run cycle from it.</p>
+    </a>
+    <a class="tool-card" href="ships.html">
+      <canvas class="tool-preview" id="shipPreview" width="24" height="24" aria-hidden="true"></canvas>
+      <h2>Ships</h2>
+      <p>Generate a spaceship hull from a class and a colour set, top-down and side-on, and paint over it.</p>
+    </a>
+    <a class="tool-card" href="snap.html">
+      <img class="tool-preview wide" src="assets/home/snap-example.png" alt="An AI-rendered goblin beside the pixel sprite made from it">
+      <h2>Snap to Style</h2>
+      <p>AI renders in, game sprites out: snapped to a grid, background gone, one height and one palette. Exports a sprite sheet.</p>
+    </a>
   </div>
 
-  <footer class="note">Everything runs in your browser. Gallery saves stay on this device — use Download to keep a copy.</footer>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<div class="modal-backdrop" id="poseModalBackdrop" hidden>
-  <div class="modal">
-    <div class="modal-head">
-      <span class="eyebrow" style="margin:0;">Pose sheet preview</span>
-      <button class="tbtn" id="poseModalClose" aria-label="Close">✕</button>
-    </div>
-    <div class="pose-preview-wrap">
-      <canvas id="poseModalCanvas"></canvas>
-    </div>
-    <div class="modal-actions">
-      <button class="secondary" id="poseModalClose2">Close</button>
-      <button class="primary" id="poseModalDownload">⭳ Download PNG</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="runCycleModalBackdrop" hidden>
-  <div class="modal">
-    <div class="modal-head">
-      <span class="eyebrow" style="margin:0;">Run cycle preview</span>
-      <button class="tbtn" id="runCycleModalClose" aria-label="Close">✕</button>
-    </div>
-    <div class="pose-preview-wrap">
-      <canvas id="runCycleCanvas"></canvas>
-    </div>
-    <div class="modal-actions">
-      <button class="secondary" id="runCycleModalClose2">Close</button>
-      <button class="primary" id="runCycleModalDownload">⭳ Download strip PNG</button>
-    </div>
-  </div>
+  <footer class="note">Everything runs in your browser. Made for our own games first —
+    <a href="https://github.com/LookOut800/sprite-forge">source on GitHub</a>.</footer>
 </div>
 
 <script src="editor-core.js"></script>
 <script src="hero-shapes.js"></script>
-<script src="app.js"></script>
+<script src="ship-shapes.js"></script>
+<script src="home.js"></script>
 </body>
 </html>

@@ -7,7 +7,8 @@ no build step, no server, no dependencies beyond one Google Fonts link.
 
 Every page shares the nav at the top; each is a separate HTML file.
 
-- `index.html` — **Hero**: hero generator + pixel editor (`app.js`, `hero-shapes.js`)
+- `index.html` — **Home**: a card per tool with live previews (`home.js`)
+- `hero.html` — **Hero**: hero generator + pixel editor (`app.js`, `hero-shapes.js`)
 - `ships.html` — **Ships**: ship generator + editor (`ships.js`, `ship-shapes.js`)
 - `snap.html` — **Snap to Style**: AI renders in, game sprites out (`snap.js`, `snap-core.js`)
 
@@ -78,7 +79,7 @@ doesn't matter where it's mounted.
   (`[headRx, headRy, torsoHalfWidth, torsoHeight, legLength, armLength,
   torsoHoleChance, extraOdds]`), then an entry in `PRESET_LABELS`.
 - Add a new colour set by adding a 5-colour array to `PALETTES` and an
-  `<option>` in `index.html`'s `#paletteSel`.
+  `<option>` in `hero.html`'s `#paletteSel`.
 - The generator only produces a static standing pose today. Animated frames
   (walk, jump) would need a posing step — ask if you want that ported over
   next.
