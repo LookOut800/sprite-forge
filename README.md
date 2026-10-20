@@ -122,6 +122,5 @@ doesn't matter where it's mounted.
   torsoHoleChance, extraOdds]`), then an entry in `PRESET_LABELS`.
 - Add a new colour set by adding a 5-colour array to `PALETTES` and an
   `<option>` in `hero.html`'s `#paletteSel`.
-- The generator only produces a static standing pose today. Animated frames
-  (walk, jump) would need a posing step — ask if you want that ported over
-  next.
+- Animated frames come from the Hero tool's poses: idle, an 8-frame run built
+  from Front, jump, side and back (see *Hero → game* above for the export).
